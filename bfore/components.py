@@ -2,7 +2,7 @@ import numpy as np
 
 class ComponentBase(object) :
     """
-    Empty component class
+    Empty component class   
     No parameters
     """
     def __init__(self,comp_name='base') :
@@ -15,7 +15,7 @@ class ComponentBase(object) :
         nu (array_like) : Frequency (in GHz)
         p (array_like) : array of parameters defining the SED
         Question: should we assume uK_RJ by default and let the initializer take care of units?
-        """        
+        """
         return np.ones_like(nu)
 
 class ComponentCMB(ComponentBase) :
