@@ -19,10 +19,11 @@ class InstrumentModel(object) :
         for i in np.arange(self.n_chanels) :
             self.bps_arrs[i]/=np.sum(self.bps_arrs[i])
 
-    def convolve_sed(self,sed,args=None) :
+    def convolve_sed(self,sed,args=None,instpar=None) :
         """
         Convolves a given SED with each of the bandpasses, returning a vector, with one element per bandpass response.
         sed (function) : a function taking two arguments: an array of frequencies (in GHz) and an array of parameters that define the SED.
         args (array_like) : set of parameters to pass to 'sed'
+        instpar (array_like) : array of additional parameters associated with this instrument (e.g. bandpass or gain shifts). None are implemented yet.
         """
         return np.array([np.sum(b*sed(n,args)) for n,b in zip(self.nu_arrs,self.bps_arrs)])
