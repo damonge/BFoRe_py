@@ -18,22 +18,28 @@ class SkyModel(object) :
         include_dust (bool): is dust one of the components?
         extra_components (array_like) : array of extra ComponentXYZ objects
         """
-
         #Basically stack components together
         #...
+        self.comps = []
         if include_cmb :
-            comps.append(ComponentCMB())
+            self.comps.append(ComponentCMB())
         if include_sync :
-            comps.append(ComponentSyncPL())
+            self.comps.append(ComponentSyncPL())
         if include_dust :
-            comps.append(ComponentDustMBB())
+            self.comps.append(ComponentDustMBB())
         if extra_components is not None :
             for c in extra_components :
-                comps.append(c)
+                self.comps.append(c)
 
-        self.ncomp=len(comps)
+        self.ncomp=len(self.comps)
 
-    def fnu(self,nu,params) :
+    def get_model_parameters(self):
+        """ Function to collect all the parameters required by the components
+        in the model.
+        """
+        return
+
+    def fnu(self, nu, params) :
         """
         Return matrix of SEDs
         nu (array_like) : frequencies
@@ -42,8 +48,7 @@ class SkyModel(object) :
                    One option would be to pass a dictionary, such that params['sync']
                    be the parameters for the synchrotron model.
         """
-        fnu=np.zeros([self.ncomp,len(nu)])
-        for i,c in enumerate(self.comp) :
-            fnu[i,:]=c.fnu(nu,params)
-
+        fnu = np.zeros([self.ncomp, len(nu)])
+        for i, c in enumerate(self.comps):
+            fnu[i, :] = c.fnu(nu, params[c.comp_name])
         return fnu

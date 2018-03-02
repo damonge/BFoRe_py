@@ -1,23 +1,48 @@
 from __future__ import absolute_import, print_function
 import numpy as np
 import healpy as hp
+from copy import deepcopy
 from .sky_model import SkyModel
-
 from .instrument_model import InstrumentModel
 import numpy as np
 
 class MapLike(object) :
     """
     Map-based likelihood
+
+    NOTES:
+        - Need function to break up input data into large spectral parameter
+        pixels, and distribute to sampler one at a time, or across tasks.
+        - Decide how to pass spectral parameters between maplike and skymodel
+        and component classes. One dictionary with all parameters named
+        differently would be the easiest, but perhaps confusing. 
+
     """
-    def __init__(self, config_dict):#,sky_model,instrument_model) :
+    def __init__(self, config_dict, sky_model):#,instrument_model) :
         """
         Initializes likelihood
-        sky_model (SkyModel) : SkyModel object describing all sky components
-        instrument_model (InstrumentModel) : object describing the instrument's response to the sky
+
+        Parameters
+        ----------
+        config_dict: dictionary
+            Dictionary containing all the setup information for the likelihood.
+            This contains frequencies of the data, the data mean, the data
+            variance, and which spectral parameters to sample.
+            Fields this dictionary must have are:
+            - fpaths_mean: paths to data means (list(str)).
+            - fpaths_vars: paths to data variances (list(str)).
+            - var_pars: which parameters to vary (list(str)).
+            - nus: frequencies (list(float)).
+
+        sky_model: SkyModel
+            SkyModel object describing all sky components, contains the
+            SkyModel.fnu method, which is used to calculate the SED.
+        instrument_model: InstrumentModel
+            InstrumentModel object describing the instrument's response to the
+            sky.
         """
         self.__dict__.update(config_dict)
-        #self.sky=sky_model
+        self.sky=sky_model
         #elf.inst=instrument_model
         self.read_data()
         #Here we could precompute the F matrix and interpolate it over spectral parameters.
@@ -29,14 +54,36 @@ class MapLike(object) :
         self.data_vars = read_hpix_maps(self.fpaths_vars)
         return
 
-    def f_matrix(self,spec_params,inst_params=None) :
+    def proposal_spec_params(self, spec_params, sigma=0.1):
+        """ Function to calculate a set of proposal spectral parameters for the
+        next iteration of the sampler.
+
+        Parameters
+        ----------
+        spec_params: dictionary
+            Dictionary containing the current spectral parameters.
+        sigma: float
+            Scaling parameter controlling the range of proposal values.
+
+        Returns
+        -------
+        dictionary
+            Dictionary containing the proposal spectral parameters.
+        """
+        prop = deepcopy(spec_params)
+        for par_name in self.var_pars:
+            prop[par_name] += sigma * np.random.randn()
+        return prop
+
+    def f_matrix(self, spec_params, inst_params=None) :
         """
         Returns the instrument's response to each of the sky components in each frequency channel.
         The returned array has shape (N_pol, N_comp, N_freq).
         spec_params : dictionary of parameters necessary to describe all components in the sky model
         inst_params : dictionary of parameters describing the instrument (none needed/implemented yet).
         """
-        return self.inst.convolve_sed(self.sky.fnu,args=spec_params,instpar=inst_params)
+        #return self.inst.convolve_sed(self.sky.fnu,args=spec_params,instpar=inst_params)
+        return self.sky.fnu(self.nus, spec_params)
 
     def get_amplitude_covariance(self, n_ivar_map, spec_params, inst_params=None, f_matrix=None):
         """
@@ -82,7 +129,11 @@ class MapLike(object) :
 
         Parameters
         ----------
-        d_map (array_like) : 2D array with dimensions (N_pol,N_pix), where N_pol is the number of polarization channels and N_pix is the number of pixels. Each element of this array should contain the measured temperature/polarization in that pixel and frequency channel.
+        d_map: array_like(float)
+            2D array with dimensions (N_pol,N_pix), where N_pol is the number of
+            polarization channels and N_pix is the number of pixels. Each
+            element of this array should contain the measured
+            temperature/polarization in that pixel and frequency channel.
         n_ivar_map: array_like(float)
             2D array with dimensions (N_freq, N_pol,N_pix), where N_pol is the
             number of polarization channels and N_pix is the number of pixels.
@@ -105,7 +156,8 @@ class MapLike(object) :
         array_like
             Array with dimensions (N_pol,N_pix,N_comp).
         """
-        #Again, we're allowing F and N_T to be passed to avoid extra operations. Should we be passing choleskys here?
+        # Again, we're allowing F and N_T to be passed to avoid extra operations.
+        # Should we be passing choleskys here?
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
         if nt_matrix is None:
@@ -116,7 +168,6 @@ class MapLike(object) :
         # Get the solution to: N_T_inv T_bar = F^T N^-1 d
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
-
 
     def marginal_spectral_likelihood(self, d_map, n_ivar_map, spec_params, inst_params=None, volume_prior=True, lnprior=None):
         """ Function to calculate the likelihood marginalized over amplitude
@@ -148,7 +199,6 @@ class MapLike(object) :
         # NOTE: Need to add option to not cancel the volume prior, and option to add
         # priors on the spectral indices.
         return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
-
 
     def sample_marginal_spectral_likelihood(self, n_iter):
         """
@@ -186,7 +236,6 @@ class MapLike(object) :
                 spec_params = np.copy(spec_params_prop)
             chain.append(spec_params)
         return chain
-
 
 def read_hpix_maps(fpaths, verbose=False):
     """ Convenience function for reading in a list of paths to healpix maps and

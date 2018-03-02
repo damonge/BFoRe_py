@@ -1,6 +1,8 @@
-from bfore import MapLike
+#!/home/ben/anaconda3/bin/python
+from bfore import MapLike, SkyModel
 import numpy as np
 import healpy as hp
+import matplotlib.pyplot as plt
 from os.path import join, abspath
 
 def test_setup():
@@ -28,14 +30,41 @@ def test_setup():
     return config_dict
 
 def test_maplike(config_dict):
-    ml = MapLike(config_dict)
+    skymodel = SkyModel()
+    ml = MapLike(config_dict, skymodel)
     print(ml.nus)
     print(ml.fpaths_mean)
     print(ml.fpaths_vars)
     print(ml.data_mean.shape)
     print(ml.data_vars.shape)
+    params = {
+    "sync_pl": [23., -3.1],
+    "dust_mbb": [353., 1.51, 19.],
+    }
+    print(ml.f_matrix(params))
+    print(ml.f_matrix(params))
+    return
+
+def test_skymodel():
+    skymodel = SkyModel()
+
+    params = {
+    "sync_pl": [23., -3.1],
+    "dust_mbb": [353., 1.51, 19.],
+    }
+    freqs = np.logspace(1, 2.5, 100)
+    fnus = skymodel.fnu(freqs, params)
+
+    fig, ax = plt.subplots(1, 1)
+    ax.loglog(freqs, fnus[0], label='cmb')
+    ax.loglog(freqs, fnus[1], label='sync')
+    ax.loglog(freqs, fnus[2], label='dust')
+    ax.legend()
+    plt.show()
     return
 
 if __name__=="__main__":
+    #test_skymodel()
+
     config_dict = test_setup()
     test_maplike(config_dict)
