@@ -29,32 +29,27 @@ def test_setup():
     }
     return config_dict
 
-def test_maplike(config_dict):
-    skymodel = SkyModel()
+def test_maplike(components, params):
+    skymodel = SkyModel(components)
     ml = MapLike(config_dict, skymodel)
     print(ml.nus)
     print(ml.fpaths_mean)
     print(ml.fpaths_vars)
     print(ml.data_mean.shape)
     print(ml.data_vars.shape)
-    params = {
-    "sync_pl": [23., -3.1],
-    "dust_mbb": [353., 1.51, 19.],
-    }
     print(ml.f_matrix(params))
     print(ml.f_matrix(params))
     return
 
-def test_skymodel():
-    skymodel = SkyModel()
-
-    params = {
-    "sync_pl": [23., -3.1],
-    "dust_mbb": [353., 1.51, 19.],
-    }
+def test_skymodel(components, params):
+    # initialize sky model with a list of component sed names.
+    skymodel = SkyModel(components)
+    # calculate the F matrix over a set of frequencies.
     freqs = np.logspace(1, 2.5, 100)
     fnus = skymodel.fnu(freqs, params)
-
+    # print some information about the SEDs we are using
+    skymodel.get_model_parameters()
+    # plot the seds we just calculated.
     fig, ax = plt.subplots(1, 1)
     ax.loglog(freqs, fnus[0], label='cmb')
     ax.loglog(freqs, fnus[1], label='sync')
@@ -64,7 +59,15 @@ def test_skymodel():
     return
 
 if __name__=="__main__":
-    #test_skymodel()
+    components = ["cmb", "dustmbb", "syncpl"]
+    params = {
+    "beta_s": -3.1,
+    "beta_d": 1.5,
+    "T_d": 19,
+    "nu_ref_s": 23.,
+    "nu_ref_d": 353.,
+    }
+    test_skymodel(components, params)
 
     config_dict = test_setup()
-    test_maplike(config_dict)
+    test_maplike(components, params)

@@ -15,7 +15,15 @@ class MapLike(object) :
         pixels, and distribute to sampler one at a time, or across tasks.
         - Decide how to pass spectral parameters between maplike and skymodel
         and component classes. One dictionary with all parameters named
-        differently would be the easiest, but perhaps confusing. 
+        differently would be the easiest, but perhaps confusing.
+        - I think it is worth splitting this class up, as none of the methods
+        like f_matrix or get_amplitude_covariance, get_amplitude_mean, depend
+        on the state of the object. This should probably just be a class for
+        control, splitting up maps, and distributing / collecting tasks. Demote
+        these computational methods to functions, as this
+        would also separate the flow control and sampling output from the
+        actual method of sampling, which is probably easier to modify in the
+        future, and easier to unit test / debug.  
 
     """
     def __init__(self, config_dict, sky_model):#,instrument_model) :
@@ -42,8 +50,8 @@ class MapLike(object) :
             sky.
         """
         self.__dict__.update(config_dict)
-        self.sky=sky_model
-        #elf.inst=instrument_model
+        self.sky = sky_model
+        #self.inst = instrument_model
         self.read_data()
         #Here we could precompute the F matrix and interpolate it over spectral parameters.
 
@@ -70,6 +78,8 @@ class MapLike(object) :
         dictionary
             Dictionary containing the proposal spectral parameters.
         """
+        # NOTE: there should probably be a way to update this sigma parameter
+        # with the current parameter covariance?
         prop = deepcopy(spec_params)
         for par_name in self.var_pars:
             prop[par_name] += sigma * np.random.randn()
@@ -77,15 +87,26 @@ class MapLike(object) :
 
     def f_matrix(self, spec_params, inst_params=None) :
         """
-        Returns the instrument's response to each of the sky components in each frequency channel.
-        The returned array has shape (N_pol, N_comp, N_freq).
-        spec_params : dictionary of parameters necessary to describe all components in the sky model
-        inst_params : dictionary of parameters describing the instrument (none needed/implemented yet).
+        Returns the instrument's response to each of the sky components in each
+        frequency channel.
+
+        Parameters
+        ----------
+        spec_params: dict
+            Parameters necessary to describe all components in the sky model
+        inst_params: dict
+            Parameters describing the instrument (none needed/implemented yet).
+
+        Returns
+        -------
+        array_like(float)
+            The returned array has shape (N_pol, N_comp, N_freq).
         """
         #return self.inst.convolve_sed(self.sky.fnu,args=spec_params,instpar=inst_params)
         return self.sky.fnu(self.nus, spec_params)
 
-    def get_amplitude_covariance(self, n_ivar_map, spec_params, inst_params=None, f_matrix=None):
+    def get_amplitude_covariance(self, n_ivar_map, spec_params,
+                                    inst_params=None, f_matrix=None):
         """
         Computes the covariance of the different component amplitudes.
 
@@ -111,7 +132,9 @@ class MapLike(object) :
             noise covariance of all component amplitudes in each pixel and
             polarization channel.
         """
-        #Note: we should think about where it'd be better to compute/store the Cholesky decomposition of N_T (and even if it'd be better to store the Cholesky of N_T^{-1}).
+        # Note: we should think about where it'd be better to compute/store the
+        # Cholesky decomposition of N_T (and even if it'd be better to store the
+        # Cholesky of N_T^{-1}).
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
         # (N_pol, N_comp, N_freq) x (N_pol, N_comp, N_freq) = (N_pol, N_comp, N_comp, N_freq)
@@ -123,7 +146,8 @@ class MapLike(object) :
         # Note: do we need the cholesky decomposition if the amplitudes are not sampled?
         return amp_covar_inv
 
-    def get_amplitude_mean(self,d_map,n_ivar_map,spec_params,inst_params,f_matrix=None,nt_inv_matrix=None) :
+    def get_amplitude_mean(self, d_map, n_ivar_map, spec_params, inst_params,
+                            f_matrix=None, nt_inv_matrix=None) :
         """
         Computes the best-fit amplitudes for all components.
 
@@ -161,7 +185,8 @@ class MapLike(object) :
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
         if nt_matrix is None:
-            nt_inv_matrix = self.get_amplitude_covariance(n_ivar_map, spec_params, inst_params=inst_params, f_matrix=f_matrix_params)
+            nt_inv_matrix = self.get_amplitude_covariance(n_ivar_map,
+                spec_params, inst_params=inst_params, f_matrix=f_matrix_params)
         # NOTE: n_ivar_map * d_map should not be calculated for each iteration
         # (N_pol, N_comp, N_freq) * (N_freq, N_pol, N_pix) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp)
         y = np.einsum("ijk,kil,kim->ilj", f_matrix, n_ivar_map, d_map)
@@ -169,7 +194,9 @@ class MapLike(object) :
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
 
-    def marginal_spectral_likelihood(self, d_map, n_ivar_map, spec_params, inst_params=None, volume_prior=True, lnprior=None):
+    def marginal_spectral_likelihood(self, d_map, n_ivar_map, spec_params,
+                                        inst_params=None, volume_prior=True,
+                                        lnprior=None):
         """ Function to calculate the likelihood marginalized over amplitude
         parameters.
 
@@ -193,13 +220,20 @@ class MapLike(object) :
         # calculate sed for proposal spectral parameters
         f_matrix = self.f_matrix(spec_params, inst_params=inst_params)
         # get amplitude covariance for proposal spectral parameters
-        amp_covar_matrix = self.get_amplitude_covariance(n_ivar_map, spec_params, inst_params, f_mat)
+        # NOTE: should we recalculate the covariance at every single step, or
+        # every N_cov steps?
+        amp_covar_matrix = self.get_amplitude_covariance(n_ivar_map,
+                                            spec_params, inst_params, f_mat)
         # get amplitude mean for proposal spectral parameters
-        amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params, inst_params, f_matrix=f_matrix,nt_inv_matrix=amp_covar_matrix)
-        # NOTE: Need to add option to not cancel the volume prior, and option to add
-        # priors on the spectral indices.
+        amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
+                                            inst_params, f_matrix=f_matrix,
+                                            nt_inv_matrix=amp_covar_matrix)
+        # NOTE: Need to add option to not cancel the volume prior, and option to
+        # add priors on the spectral indices.
         return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
 
+    # NOTE: This is the function that should be distributed between tasks. So
+    # add another method that splits up the input maps and scatters.
     def sample_marginal_spectral_likelihood(self, n_iter):
         """
         Computes the marginal likelihood of the non-amplitude parameters,
@@ -219,17 +253,18 @@ class MapLike(object) :
             Parameters describing the instrument (none needed/implemented yet).
 
         """
-        #NOTE: add something in this function or somewhere else that splits up
-        # the pixels between tasks such that each task does not need a copy of
-        # the whole set of maps.
         chain = []
-        loglkl = self.marginal_spectral_likelihood(d_map, n_ivar_map, self.initial_param_guess, inst_params=None, volume_prior=True, lnprior=None)
+        loglkl = self.marginal_spectral_likelihood(d_map, n_ivar_map,
+                                self.initial_param_guess, inst_params=None,
+                                volume_prior=True, lnprior=None)
         chain.append(self.initial_param_guess)
         for i in range(n_iter):
             # proposal set of spectral parameters
             spec_params_prop = self.proposal_spec_params()
             # calculate likelihood at proposal point
-            loglkl_prop = self.marginal_spectral_likelihood(d_map, n_ivar_map, spec_params_prop, inst_params=None, volume_prior=True, lnprior=None)
+            loglkl_prop = self.marginal_spectral_likelihood(d_map, n_ivar_map,
+                                spec_params_prop, inst_params=None,
+                                volume_prior=True, lnprior=None)
             # calculate acceptance ratio
             acceptance_ratio = np.exp(loglkl_prop - loglkl)
             if acceptance_ratio > np.random.uniform(0, 1):

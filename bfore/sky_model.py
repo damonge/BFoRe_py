@@ -1,5 +1,5 @@
 import numpy as np
-from .components import ComponentBase,ComponentCMB,ComponentSyncPL,ComponentDustMBB
+from .components import Component
 
 class SkyModel(object) :
     """
@@ -8,47 +8,57 @@ class SkyModel(object) :
     """
     comps=[]
 
-    def __init__(self,is_polarized=False,include_cmb=True,
-                 include_sync=True,include_dust=True,extra_components=None) :
+    def __init__(self, components, is_polarized=False, extra_components=None):
         """
         Initializes a sky model
-        is_polarized (bool): determines whether maps are I or (Q,U)
-        include_cmb (bool): is CMB one of the components?
-        include_sync (bool): is synchrotron one of the components?
-        include_dust (bool): is dust one of the components?
-        extra_components (array_like) : array of extra ComponentXYZ objects
-        """
-        #Basically stack components together
-        #...
-        self.comps = []
-        if include_cmb :
-            self.comps.append(ComponentCMB())
-        if include_sync :
-            self.comps.append(ComponentSyncPL())
-        if include_dust :
-            self.comps.append(ComponentDustMBB())
-        if extra_components is not None :
-            for c in extra_components :
-                self.comps.append(c)
 
-        self.ncomp=len(self.comps)
+        Parameters
+        ----------
+        components:  list(str)
+            List of strings corresponding to the SEDs of the various components.
+            These must match names of SED functions available in the
+            `bfore.components` submodule.
+        is_polarized: bool
+            Determines whether maps are I or (Q,U)
+        extra_components: list(`Component`)
+            List of extra `ComponentBase` objects.
+        """
+        # Initialize list of requested components.
+        self.components = [Component(comp_name) for comp_name in components]
+        return
 
     def get_model_parameters(self):
         """ Function to collect all the parameters required by the components
-        in the model.
+        in the model, this just prints the docstring of the SEDs specified
+        in the `components` argument initlizing this class.
         """
-        return
+        print("This instance of SkyModel contains the following SEDs: \n")
+        [component.get_description() for component in self.components]
+        pass
 
     def fnu(self, nu, params) :
         """
         Return matrix of SEDs
-        nu (array_like) : frequencies
-        params : parameters for all the SEDs
-        QUESTION : we should think about what the best way of passing these parameters is.
-                   One option would be to pass a dictionary, such that params['sync']
-                   be the parameters for the synchrotron model.
+
+        Parameters
+        ----------
+        nu: array_like(float)
+            Frequencies in GHz at which to calculate the spectrum.
+        params: dict
+            Parameters for all the SEDs
+
+        Returns
+        -------
+        array_like(float)
+            Matrix containing the scaling for each parameter. Shape is
+            (N_pol, N_comp, N_freq)
+
+        NOTES:
+            -This needs to be updated to include different SEDs for
+            polarization and temperature. Currently the returned shape is just
+            (N_comp, N_freq).
+            - we should think about what the best way of passing these
+            parameters is. One option would be to pass a dictionary, such that
+            params['sync'] be the parameters for the synchrotron model.
         """
-        fnu = np.zeros([self.ncomp, len(nu)])
-        for i, c in enumerate(self.comps):
-            fnu[i, :] = c.fnu(nu, params[c.comp_name])
-        return fnu
+        return np.array([sed(nu, params) for sed in self.components])
