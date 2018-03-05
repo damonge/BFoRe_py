@@ -25,7 +25,8 @@ def test_setup():
     config_dict = {
         "nus": nus,
         "fpaths_mean": fpaths_mean,
-        "fpaths_vars": fpaths_vars
+        "fpaths_vars": fpaths_vars,
+        "nside_spec": 2,
     }
     return config_dict
 
@@ -39,6 +40,13 @@ def test_maplike(components, params):
     print(ml.data_vars.shape)
     print(ml.f_matrix(params))
     print(ml.f_matrix(params))
+    gen = ml.split_data()
+    for (mean, var) in gen:
+        print(mean.shape)
+        print(ml.get_amplitude_covariance(var, params).shape)
+        print(ml.get_amplitude_covariance(var, params)[0, 0, :, :])
+        print(ml.get_amplitude_mean(mean, var, params, None))
+        print(var.shape)
     return
 
 def test_skymodel(components, params):
@@ -51,15 +59,14 @@ def test_skymodel(components, params):
     skymodel.get_model_parameters()
     # plot the seds we just calculated.
     fig, ax = plt.subplots(1, 1)
-    ax.loglog(freqs, fnus[0], label='cmb')
-    ax.loglog(freqs, fnus[1], label='sync')
-    ax.loglog(freqs, fnus[2], label='dust')
+    ax.loglog(freqs, fnus[0, 0], label='cmb')
+    ax.loglog(freqs, fnus[0, 1], label='sync')
+    #ax.loglog(freqs, fnus[0, 2], label='dust')
     ax.legend()
-    plt.show()
     return
 
 if __name__=="__main__":
-    components = ["cmb", "dustmbb", "syncpl"]
+    components = ["dustmbb", "syncpl"]
     params = {
     "beta_s": -3.1,
     "beta_d": 1.5,

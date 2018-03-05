@@ -22,7 +22,7 @@ class Component(object) :
         don't think having a separate base class makes sense. These functions
         should all just be assembled in SkyModel, in the same way as Component
         is currently doing. This is currently just wrapping individual
-        functions, without adding anything. .
+        functions, without adding anything.
     """
     def __init__(self, comp_name) :
         """ SED must be in uK_RJ units.
@@ -61,7 +61,7 @@ def cmb(nu, *args, **kwargs):
     nu = np.array(list(nu))
     x = 0.0176086761 * nu
     ex = np.exp(x)
-    return ex * (x / (ex - 1)) ** 2
+    return np.array(3 * [ex * (x / (ex - 1)) ** 2])
 
 
 def syncpl(nu, *args, **kwargs):
@@ -81,7 +81,7 @@ def syncpl(nu, *args, **kwargs):
     """
     nu = np.array(list(nu))
     x = nu / kwargs['nu_ref_s']
-    return x ** kwargs['beta_s']
+    return np.array(3 * [x ** kwargs['beta_s']])
 
 
 def dustmbb(nu, * args, **kwargs):
@@ -106,7 +106,7 @@ def dustmbb(nu, * args, **kwargs):
     nu = np.array(list(nu))
     x_to = 0.0479924466 * nu / kwargs['T_d']
     x_from = 0.0479924466 * kwargs['nu_ref_d'] / kwargs['T_d']
-    return (nu / kwargs['nu_ref_d']) ** (1 + kwargs['beta_d']) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)
+    return np.array(3 * [(nu / kwargs['nu_ref_d']) ** (1 + kwargs['beta_d']) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)])
 
 
 """

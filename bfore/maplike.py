@@ -2,8 +2,8 @@ from __future__ import absolute_import, print_function
 import numpy as np
 import healpy as hp
 from copy import deepcopy
-from .sky_model import SkyModel
-from .instrument_model import InstrumentModel
+from .skymodel import SkyModel
+from .instrumentmodel import InstrumentModel
 import numpy as np
 
 class MapLike(object) :
@@ -23,7 +23,7 @@ class MapLike(object) :
         these computational methods to functions, as this
         would also separate the flow control and sampling output from the
         actual method of sampling, which is probably easier to modify in the
-        future, and easier to unit test / debug.  
+        future, and easier to unit test / debug.
 
     """
     def __init__(self, config_dict, sky_model):#,instrument_model) :
@@ -41,6 +41,7 @@ class MapLike(object) :
             - fpaths_vars: paths to data variances (list(str)).
             - var_pars: which parameters to vary (list(str)).
             - nus: frequencies (list(float)).
+            - nside_spec: nside at which to vary the spectral parameters (int).
 
         sky_model: SkyModel
             SkyModel object describing all sky components, contains the
@@ -56,11 +57,34 @@ class MapLike(object) :
         #Here we could precompute the F matrix and interpolate it over spectral parameters.
 
     def read_data(self):
-        """ Method to read input data.
+        """ Method to read input data. The `self.data_mean` and `self.data_vars`
+        will have shape: (N_freqs, N_pol, N_pix)
         """
-        self.data_mean = read_hpix_maps(self.fpaths_mean)
-        self.data_vars = read_hpix_maps(self.fpaths_vars)
+        self.data_mean = read_hpix_maps(self.fpaths_mean, nest=True)
+        self.data_vars = read_hpix_maps(self.fpaths_vars, nest=True)
+        self.nside_base = hp.get_nside(self.data_mean[0][0])
         return
+
+    def split_data(self):
+        """ Generator function to return the data each task is to work on. This
+        is one large spectral index pixel, and the corresponding pixels at the
+        base amplitude resolution.
+
+        Returns
+        -------
+        generator
+            Generator function that yields a tuple containing the data mean
+            and variance within one large pixel over which the spectral
+            paraemters are held constant.
+        """
+        npix_spec = hp.nside2npix(self.nside_spec)
+        npix_base = hp.nside2npix(self.nside_base)
+        nside_sub = int(npix_base / npix_spec)
+        for i in range(npix_spec):
+            mean = self.data_mean[:, :, i * nside_sub : (i + 1) * nside_sub]
+            vars = self.data_vars[:, :, i * nside_sub : (i + 1) * nside_sub]
+            yield (mean, vars)
+
 
     def proposal_spec_params(self, spec_params, sigma=0.1):
         """ Function to calculate a set of proposal spectral parameters for the
@@ -113,7 +137,7 @@ class MapLike(object) :
         Parameters
         ----------
         n_ivar_map: array_like(float)
-            2D array with dimensions (N_freq, N_pol,N_pix), where N_pol is the
+            2D array with dimensions (N_freq, N_pol, N_pix), where N_pol is the
             number of polarization channels and N_pix is the number of pixels.
             Each element of this array should contain the inverse noise variance
             in that pixel and frequency channel. Uncorrelated noise is assumed.
@@ -140,7 +164,10 @@ class MapLike(object) :
         # (N_pol, N_comp, N_freq) x (N_pol, N_comp, N_freq) = (N_pol, N_comp, N_comp, N_freq)
         f_mat_outer = np.einsum("ijk,ilk->ijlk", f_matrix, f_matrix)
         # (N_pol, N_comp, N_comp, N_freq) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp, N_comp)
-        amp_covar_inv = np.einsum("ijkl,min->injk", f_mat_outer, n_ivar_map)
+        print("f_matrix shape", f_matrix.shape)
+        print("f_mat_outer shape", f_mat_outer.shape)
+        print("n_ivar_map shape:", n_ivar_map.shape)
+        amp_covar_inv = np.einsum("ijkl,lin->injk", f_mat_outer, n_ivar_map)
         # Get lower triangular cholesky decomposition (this automatically uses the last two dimensions).
         #lower_cholesky = np.linalg.cholesky(amp_covar_inv)
         # Note: do we need the cholesky decomposition if the amplitudes are not sampled?
@@ -184,9 +211,9 @@ class MapLike(object) :
         # Should we be passing choleskys here?
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
-        if nt_matrix is None:
+        if nt_inv_matrix is None:
             nt_inv_matrix = self.get_amplitude_covariance(n_ivar_map,
-                spec_params, inst_params=inst_params, f_matrix=f_matrix_params)
+                spec_params, inst_params=inst_params, f_matrix=f_matrix)
         # NOTE: n_ivar_map * d_map should not be calculated for each iteration
         # (N_pol, N_comp, N_freq) * (N_freq, N_pol, N_pix) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp)
         y = np.einsum("ijk,kil,kim->ilj", f_matrix, n_ivar_map, d_map)
@@ -272,7 +299,7 @@ class MapLike(object) :
             chain.append(spec_params)
         return chain
 
-def read_hpix_maps(fpaths, verbose=False):
+def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
     """ Convenience function for reading in a list of paths to healpix maps and
     returning an array of the maps.
 
@@ -286,6 +313,9 @@ def read_hpix_maps(fpaths, verbose=False):
     array_like(floats)
         Array of shape (len(`fpaths`), npix) for just T maps, or
         (len(`fpaths`), 3, npix) for TQU maps.
+
+    NOTE:
+        - Add option for choosing polarization or not.
     """
-    gen = (hp.read_map(fpath, verbose=verbose, field=(0, 1, 2)) for fpath in fpaths)
+    gen = (hp.read_map(fpath, verbose=verbose, field=(0, 1, 2), **kwargs) for fpath in fpaths)
     return np.array(list(gen))
