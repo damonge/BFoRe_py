@@ -43,10 +43,14 @@ def test_maplike(components, params):
     gen = ml.split_data()
     for (mean, var) in gen:
         print(mean.shape)
-        print(ml.get_amplitude_covariance(var, params).shape)
-        print(ml.get_amplitude_covariance(var, params)[0, 0, :, :])
-        print(ml.get_amplitude_mean(mean, var, params, None))
-        print(var.shape)
+        covar = ml.get_amplitude_covariance(var, params)
+        print("amp covar shape: ", covar.shape)
+        print("amp covar: ", covar[0, 0 , :, :])
+        print("Pixel var shape: ", var.shape)
+        amp_mean = ml.get_amplitude_mean(mean, var, params, None)
+        print("amp mean shape: ", amp_mean.shape)
+        lkl = ml.marginal_spectral_likelihood(mean, var, params)
+        print("likelihood: ", lkl)
     return
 
 def test_skymodel(components, params):

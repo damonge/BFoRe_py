@@ -161,12 +161,9 @@ class MapLike(object) :
         # Cholesky of N_T^{-1}).
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
-        # (N_pol, N_comp, N_freq) x (N_pol, N_comp, N_freq) = (N_pol, N_comp, N_comp, N_freq)
-        f_mat_outer = np.einsum("ijk,ilk->ijlk", f_matrix, f_matrix)
+        # (N_comp, N_pol, N_freq) x (N_comp, N_pol, N_freq) = (N_pol, N_comp, N_comp, N_freq)
+        f_mat_outer = np.einsum("ijk,ljk->jilk", f_matrix, f_matrix)
         # (N_pol, N_comp, N_comp, N_freq) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp, N_comp)
-        print("f_matrix shape", f_matrix.shape)
-        print("f_mat_outer shape", f_mat_outer.shape)
-        print("n_ivar_map shape:", n_ivar_map.shape)
         amp_covar_inv = np.einsum("ijkl,lin->injk", f_mat_outer, n_ivar_map)
         # Get lower triangular cholesky decomposition (this automatically uses the last two dimensions).
         #lower_cholesky = np.linalg.cholesky(amp_covar_inv)
@@ -181,12 +178,12 @@ class MapLike(object) :
         Parameters
         ----------
         d_map: array_like(float)
-            2D array with dimensions (N_pol,N_pix), where N_pol is the number of
+            array with dimensions (N_freq, N_pol, N_pix), where N_pol is the number of
             polarization channels and N_pix is the number of pixels. Each
             element of this array should contain the measured
             temperature/polarization in that pixel and frequency channel.
         n_ivar_map: array_like(float)
-            2D array with dimensions (N_freq, N_pol,N_pix), where N_pol is the
+            array with dimensions (N_freq, N_pol, N_pix), where N_pol is the
             number of polarization channels and N_pix is the number of pixels.
             Each element of this array should contain the inverse noise variance
             in that pixel and frequency channel. Uncorrelated noise is assumed.
@@ -215,8 +212,8 @@ class MapLike(object) :
             nt_inv_matrix = self.get_amplitude_covariance(n_ivar_map,
                 spec_params, inst_params=inst_params, f_matrix=f_matrix)
         # NOTE: n_ivar_map * d_map should not be calculated for each iteration
-        # (N_pol, N_comp, N_freq) * (N_freq, N_pol, N_pix) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp)
-        y = np.einsum("ijk,kil,kim->ilj", f_matrix, n_ivar_map, d_map)
+        # (N_comp, N_pol, N_freq) * (N_freq, N_pol, N_pix) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp)
+        y = np.einsum("jik,kil,kil->ilj", f_matrix, n_ivar_map, d_map)
         # Get the solution to: N_T_inv T_bar = F^T N^-1 d
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
@@ -250,7 +247,7 @@ class MapLike(object) :
         # NOTE: should we recalculate the covariance at every single step, or
         # every N_cov steps?
         amp_covar_matrix = self.get_amplitude_covariance(n_ivar_map,
-                                            spec_params, inst_params, f_mat)
+                                            spec_params, inst_params, f_matrix)
         # get amplitude mean for proposal spectral parameters
         amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
                                             inst_params, f_matrix=f_matrix,
