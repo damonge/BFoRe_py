@@ -18,9 +18,11 @@ class Component(object) :
     No parameters
 
     NOTE:
-        - This base class is not actually used for anything yet.
-        - Is the idea to make this very general so that more components can be
-        added in the future?
+        - If the models we are using remain at this level of complexity, I
+        don't think having a separate base class makes sense. These functions
+        should all just be assembled in SkyModel, in the same way as Component
+        is currently doing. This is currently just wrapping individual
+        functions, without adding anything. .
     """
     def __init__(self, comp_name) :
         """ SED must be in uK_RJ units.
