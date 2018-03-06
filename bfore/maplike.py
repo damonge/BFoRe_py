@@ -86,7 +86,7 @@ class MapLike(object) :
             yield (mean, vars)
 
 
-    def proposal_spec_params(self, spec_params, sigma=0.1):
+    def proposal_spec_params(self, spec_params, sigma=0.05):
         """ Function to calculate a set of proposal spectral parameters for the
         next iteration of the sampler.
 
@@ -106,7 +106,7 @@ class MapLike(object) :
         # with the current parameter covariance?
         prop = deepcopy(spec_params)
         for par_name in self.var_pars:
-            prop[par_name] += sigma * np.random.randn()
+            prop[par_name] = prop[par_name] + sigma * np.random.randn()
         return prop
 
     def f_matrix(self, spec_params, inst_params=None) :
@@ -195,14 +195,14 @@ class MapLike(object) :
             Array with shape (N_comp, N_freq) (see f_matrix above). If not None,
             the F matrix won't be recalculated.
         nt_matrix: array_like(float)
-            Array with shape (N_pol,N_pix,N_comp,N_comp) (see
+            Array with shape (N_pol, N_pix, N_comp, N_comp) (see
             `get_amplitude_covariance` above). If not None, the N_T matrix won't
             be recalculated.
 
         Returns
         -------
         array_like
-            Array with dimensions (N_pol,N_pix,N_comp).
+            Array with dimensions (N_pol, N_pix, N_comp).
         """
         # Again, we're allowing F and N_T to be passed to avoid extra operations.
         # Should we be passing choleskys here?
@@ -258,7 +258,7 @@ class MapLike(object) :
 
     # NOTE: This is the function that should be distributed between tasks. So
     # add another method that splits up the input maps and scatters.
-    def sample_marginal_spectral_likelihood(self, n_iter):
+    def sample_marginal_spectral_likelihood(self, d_map, n_ivar_map, n_iter):
         """
         Computes the marginal likelihood of the non-amplitude parameters,
         marginalized over the amplitude parameters for a given large pixel in
@@ -278,21 +278,27 @@ class MapLike(object) :
 
         """
         chain = []
+        spec_params = deepcopy(self.initial_param_guess)
         loglkl = self.marginal_spectral_likelihood(d_map, n_ivar_map,
                                 self.initial_param_guess, inst_params=None,
                                 volume_prior=True, lnprior=None)
-        chain.append(self.initial_param_guess)
+        chain.append(spec_params)
         for i in range(n_iter):
             # proposal set of spectral parameters
-            spec_params_prop = self.proposal_spec_params()
+            spec_params_prop = self.proposal_spec_params(spec_params)
             # calculate likelihood at proposal point
             loglkl_prop = self.marginal_spectral_likelihood(d_map, n_ivar_map,
                                 spec_params_prop, inst_params=None,
                                 volume_prior=True, lnprior=None)
             # calculate acceptance ratio
+            print("Loglkl_prop: ", loglkl_prop)
+            print("beta_s: ", spec_params_prop['beta_s'] )
+            #print("Loglkl diff: ", loglkl_prop - loglkl)
             acceptance_ratio = np.exp(loglkl_prop - loglkl)
+            #print("Acceptance ratio: ", acceptance_ratio)
             if acceptance_ratio > np.random.uniform(0, 1):
-                spec_params = np.copy(spec_params_prop)
+                spec_params.update(spec_params_prop)
+                loglkl = loglkl_prop
             chain.append(spec_params)
         return chain
 

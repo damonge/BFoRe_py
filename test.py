@@ -5,7 +5,13 @@ import healpy as hp
 import matplotlib.pyplot as plt
 from os.path import join, abspath
 
-def test_setup():
+def pixel_var(sigma_amin, nside):
+    npix = hp.nside2npix(nside)
+    amin_sq_per_pix = 4 * np.pi * (180. * 60. / np.pi) ** 2 / npix
+    pixel_var = sigma_amin ** 2 / amin_sq_per_pix
+    return pixel_var
+
+def test_setup(params):
     nside = 8
     nus = [10., 30., 45., 90., 100., 143., 350., 450.]
     ells = np.linspace(0, 3 * nside, 3 * nside + 1)
@@ -13,7 +19,10 @@ def test_setup():
     cltt_ref[2:] = 5. * (ells[2:] / 80.) ** -3.2
     cltt = lambda nu: cltt_ref * (nu / 23.) ** -3.
     maps = [hp.synfast([cltt(nu), 0.1 * cltt(nu), 0.2 * cltt(nu), 0.3 * cltt(nu)], nside, verbose=False) for nu in nus]
-    vars = [0.1 * m for m in maps]
+    vars = [1. / pixel_var(4., nside) * np.ones_like(m) for m in maps]
+    for m, v in zip(maps, vars):
+        print(m[0, 0], v[0, 0])
+    exit()
     test_dir = abspath("test_data")
     fpaths_mean = [join(test_dir, "mean_nu{:03d}.fits".format(int(nu))) for nu in nus]
     fpaths_vars = [join(test_dir, "vars_nu{:03d}.fits".format(int(nu))) for nu in nus]
@@ -27,7 +36,9 @@ def test_setup():
         "fpaths_mean": fpaths_mean,
         "fpaths_vars": fpaths_vars,
         "nside_spec": 2,
-    }
+        "initial_param_guess": params,
+        "var_pars": ["beta_d", "T_d", "beta_s"]
+            }
     return config_dict
 
 def test_maplike(components, params):
@@ -51,6 +62,7 @@ def test_maplike(components, params):
         print("amp mean shape: ", amp_mean.shape)
         lkl = ml.marginal_spectral_likelihood(mean, var, params)
         print("likelihood: ", lkl)
+        chain = ml.sample_marginal_spectral_likelihood(mean, var, 100)
     return
 
 def test_skymodel(components, params):
@@ -70,7 +82,7 @@ def test_skymodel(components, params):
     return
 
 if __name__=="__main__":
-    components = ["dustmbb", "syncpl"]
+    components = ["syncpl"]
     params = {
     "beta_s": -3.1,
     "beta_d": 1.5,
@@ -80,5 +92,5 @@ if __name__=="__main__":
     }
     test_skymodel(components, params)
 
-    config_dict = test_setup()
+    config_dict = test_setup(params)
     test_maplike(components, params)
