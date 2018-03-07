@@ -64,7 +64,7 @@ def cmb(nu, *args, **kwargs):
     nu = np.array(nu)
     x = 0.0176086761 * nu
     ex = np.exp(x)
-    sed = np.array(3 * [ex * (x / (ex - 1)) ** 2])
+    sed = ex * (x / (ex - 1)) ** 2
     return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
 def syncpl(nu, *args, **kwargs):

@@ -1,6 +1,6 @@
 #!/home/ben/anaconda3/bin/python
 from bfore import MapLike, SkyModel
-from bfore.components import syncpl, dustmbb
+from bfore.components import syncpl, dustmbb, cmb
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
@@ -34,7 +34,7 @@ def test_maplike_grid():
         'nu_ref_d': nu_ref_d
     }
 
-    components = ["syncpl", "dustmbb"]
+    components = ["syncpl", "dustmbb", "cmb"]
 
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
     sigmas = [1. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
@@ -49,17 +49,19 @@ def test_maplike_grid():
     # the templates of dust and synchrotron at their reference frequencies
     temp_s = np.array(hp.synfast([cl_s, cl_s, cl_s, cl_s], nside, verbose=False, pol=True))
     temp_d = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
+    temp_c = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
 
     # the synchrotron and dust signals separates
     synch = np.array([temp_s * syncpl(nu, beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus])
     dust = np.array([temp_d * dustmbb(nu, beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
+    cmbs = np.array([temp_c * cmb(nu) for nu in nus])
 
     # the noise maps
     noise = [add_noise(sig, nside) for sig in sigmas]
 
     # these are the simulated observations mean and variance
     # synch + dust + noise
-    maps = [s + d + n  for d, s, n in zip(dust, synch, noise)]
+    maps = [d + s + c + n  for d, s, c, n in zip(dust, synch, cmbs, noise)]
     # inverse pixel noise variance
     vars = [np.ones((3, hp.nside2npix(nside))) / pixel_var(sig, nside) for sig in sigmas]
 
@@ -87,6 +89,7 @@ def test_maplike_grid():
     # check templates are recovered for true parameters given to maplike
     temp_s_rec = np.zeros_like(temp_s)
     temp_d_rec = np.zeros_like(temp_d)
+    temp_c_rec = np.zeros_like(temp_c)
     for (mean, var), ipix_spec in zip(gen, range(hp.nside2npix(ml.nside_spec))):
         print("ipix_spec: ", ipix_spec)
         rec = ml.get_amplitude_mean(mean, var, true_params)
@@ -96,11 +99,14 @@ def test_maplike_grid():
         inds = hp.nest2ring(nside, range(ipix_spec * nsub, (ipix_spec + 1) * nsub))
         temp_s_rec[:, inds] = rec[:, :, 0]
         temp_d_rec[:, inds] = rec[:, :, 1]
+        temp_c_rec[:, inds] = rec[:, :, 2]
 
     hp.mollview(temp_s[1], title="temp_s input")
     hp.mollview(temp_s_rec[1], title="temp_s recovered")
     hp.mollview(temp_d[1], title="temp_d input")
     hp.mollview(temp_d_rec[1], title="temp_d recovered")
+    hp.mollview(temp_d[1], title="temp_c input")
+    hp.mollview(temp_d_rec[1], title="temp_c recovered")
     plt.show()
 
     # compute likelihood on grid of parameters
