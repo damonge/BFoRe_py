@@ -86,7 +86,7 @@ class MapLike(object) :
             yield (mean, vars)
 
 
-    def proposal_spec_params(self, spec_params, sigma=0.05):
+    def proposal_spec_params(self, spec_params, sigma=0.01):
         """ Function to calculate a set of proposal spectral parameters for the
         next iteration of the sampler.
 
@@ -254,53 +254,15 @@ class MapLike(object) :
                                             nt_inv_matrix=amp_covar_matrix)
         # NOTE: Need to add option to not cancel the volume prior, and option to
         # add priors on the spectral indices.
-        return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
 
+        #return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
+
+        # alternative
+        lkl = np.einsum("ijk,ijkl,ijl->ij", amp_mean, amp_covar_matrix, amp_mean)
+        return np.sum(lkl)
     # NOTE: This is the function that should be distributed between tasks. So
     # add another method that splits up the input maps and scatters.
-    def sample_marginal_spectral_likelihood(self, d_map, n_ivar_map, n_iter):
-        """
-        Computes the marginal likelihood of the non-amplitude parameters,
-        marginalized over the amplitude parameters for a given large pixel in
-        which spectral parameters are spatially constant.
 
-        Parameters
-        ----------
-        d_map, n_ivar_map: array_like(float)
-            Subset of input data pixel mean and pixel variance respectively.
-            Only contains pixels within the large pixel over which spectral
-            parameters are constant. Shape (Nfreq, Npol, Npix) where
-            Npix = (Nside_small / Nside_big) ** 2.
-        spec_params: dict
-            Parameters necessary to describe all components in the sky model
-        inst_params: dict
-            Parameters describing the instrument (none needed/implemented yet).
-
-        """
-        chain = []
-        spec_params = deepcopy(self.initial_param_guess)
-        loglkl = self.marginal_spectral_likelihood(d_map, n_ivar_map,
-                                self.initial_param_guess, inst_params=None,
-                                volume_prior=True, lnprior=None)
-        chain.append(spec_params)
-        for i in range(n_iter):
-            # proposal set of spectral parameters
-            spec_params_prop = self.proposal_spec_params(spec_params)
-            # calculate likelihood at proposal point
-            loglkl_prop = self.marginal_spectral_likelihood(d_map, n_ivar_map,
-                                spec_params_prop, inst_params=None,
-                                volume_prior=True, lnprior=None)
-            # calculate acceptance ratio
-            print("Loglkl_prop: ", loglkl_prop)
-            print("beta_s: ", spec_params_prop['beta_s'] )
-            #print("Loglkl diff: ", loglkl_prop - loglkl)
-            acceptance_ratio = np.exp(loglkl_prop - loglkl)
-            #print("Acceptance ratio: ", acceptance_ratio)
-            if acceptance_ratio > np.random.uniform(0, 1):
-                spec_params.update(spec_params_prop)
-                loglkl = loglkl_prop
-            chain.append(spec_params)
-        return chain
 
 def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
     """ Convenience function for reading in a list of paths to healpix maps and

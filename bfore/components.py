@@ -1,5 +1,6 @@
 from __future__ import print_function
 import numpy as np
+import matplotlib.pyplot as plt
 
 """ This is just a suggestion for how this submodule might look. Any additional
 SEDs or components that can be parameterized by a simple function of nu and
@@ -58,11 +59,13 @@ def cmb(nu, *args, **kwargs):
     nu: float, or array_like(float)
         Frequency in GHz.
     """
-    nu = np.array(list(nu))
+    if isinstance(nu, (float, int)):
+        nu = [nu]
+    nu = np.array(nu)
     x = 0.0176086761 * nu
     ex = np.exp(x)
-    return np.array(3 * [ex * (x / (ex - 1)) ** 2])
-
+    sed = np.array(3 * [ex * (x / (ex - 1)) ** 2])
+    return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
 def syncpl(nu, *args, **kwargs):
     """ Function to compute synchrotron power law SED.
@@ -79,9 +82,12 @@ def syncpl(nu, *args, **kwargs):
     array_like(float)
         Synchroton SED relative to reference frequency.
     """
-    nu = np.array(list(nu))
+    if isinstance(nu, (float, int)):
+        nu = [nu]
+    nu = np.array(nu)
     x = nu / kwargs['nu_ref_s']
-    return np.array(3 * [x ** kwargs['beta_s']])
+    sed = x ** kwargs['beta_s']
+    return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
 
 def dustmbb(nu, * args, **kwargs):
@@ -103,38 +109,10 @@ def dustmbb(nu, * args, **kwargs):
     array_like(float)
         SED of dust modified black body relative to reference frequency.
     """
-    nu = np.array(list(nu))
+    if isinstance(nu, (float, int)):
+        nu = [nu]
+    nu = np.array(nu)
     x_to = 0.0479924466 * nu / kwargs['T_d']
     x_from = 0.0479924466 * kwargs['nu_ref_d'] / kwargs['T_d']
-    return np.array(3 * [(nu / kwargs['nu_ref_d']) ** (1 + kwargs['beta_d']) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)])
-
-
-"""
-class ComponentCMB(ComponentBase) :
-
-    def __init__(self, comp_name='cmb') :
-        self.comp_name=comp_name
-
-    def __call__(self, nu, pars) :
-        nu = np.array(list(nu))
-        x=0.0176086761*nu
-        ex=np.exp(x)
-        return ex*(x/(ex-1))**2
-
-class ComponentSyncPL(ComponentBase) :
-
-    def __call__(self, nu, pars):
-        nu = np.array(list(nu))
-        #NOTE: things like pars[0] are just reference frequencieS? Shouldn't
-        # have these being recalculated for f_matrix.
-        x=nu/pars[0]
-        return x**pars[1]
-
-class ComponentDustMBB(ComponentBase) :
-
-    def __call__(self, nu, pars):
-        nu = np.array(list(nu))
-        x_to=0.0479924466*nu/pars[2]
-        x_from=0.0479924466*pars[0]/pars[2]
-        return (nu/pars[0])**(1+pars[1])*(np.exp(x_from)-1)/(np.exp(x_to)-1)
-"""
+    sed = (nu / kwargs['nu_ref_d']) ** (1 + kwargs['beta_d']) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)
+    return np.concatenate((sed, sed, sed)).reshape((3, -1))
