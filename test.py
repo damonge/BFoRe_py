@@ -30,7 +30,7 @@ def test_maplike_grid():
     components = ["syncpl", "dustmbb"]
 
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
-    sigmas = [0.1 * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
+    sigmas = [1. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
 
     synch = [15 * np.ones((3, hp.nside2npix(nside))) * syncpl(nu, beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus]
     dust = [15. * np.ones((3, hp.nside2npix(nside))) * dustmbb(nu, beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus]
@@ -110,14 +110,17 @@ def test_maplike_grid():
         beta_d_1d = np.sum(lkl, axis=(1, 2))
 
         plt.plot(beta_s, beta_s_1d)
+        plt.axvline(beta_s_true, color='k', linestyle='--')
         plt.title("beta_s, max={:f}".format(beta_s[np.argmax(beta_s_1d)]))
         plt.show()
 
         plt.plot(T_d, T_d_1d)
+        plt.axvline(T_d_true, color='k', linestyle='--')
         plt.title("T_d, max={:f}".format(T_d[np.argmax(T_d_1d)]))
         plt.show()
 
         plt.plot(beta_d, beta_d_1d)
+        plt.axvline(beta_d_true, color='k', linestyle='--')
         plt.title("beta_d, max={:f}".format(beta_d[np.argmax(beta_d_1d)]))
         plt.show()
     return

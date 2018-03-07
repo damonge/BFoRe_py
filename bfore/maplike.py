@@ -254,14 +254,7 @@ class MapLike(object) :
                                             nt_inv_matrix=amp_covar_matrix)
         # NOTE: Need to add option to not cancel the volume prior, and option to
         # add priors on the spectral indices.
-
-        #return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
-
-        # alternative
-        lkl = np.einsum("ijk,ijkl,ijl->ij", amp_mean, amp_covar_matrix, amp_mean)
-        return np.sum(lkl)
-    # NOTE: This is the function that should be distributed between tasks. So
-    # add another method that splits up the input maps and scatters.
+        return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
 
 
 def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
