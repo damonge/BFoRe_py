@@ -60,8 +60,8 @@ class MapLike(object) :
         """ Method to read input data. The `self.data_mean` and `self.data_vars`
         will have shape: (N_freqs, N_pol, N_pix)
         """
-        self.data_mean = read_hpix_maps(self.fpaths_mean, nest=True)
-        self.data_vars = read_hpix_maps(self.fpaths_vars, nest=True)
+        self.data_mean = read_hpix_maps(self.fpaths_mean, nest=False)
+        self.data_vars = read_hpix_maps(self.fpaths_vars, nest=False)
         self.nside_base = hp.get_nside(self.data_mean[0][0])
         return
 
@@ -81,33 +81,10 @@ class MapLike(object) :
         npix_base = hp.nside2npix(self.nside_base)
         nside_sub = int(npix_base / npix_spec)
         for i in range(npix_spec):
-            mean = self.data_mean[:, :, i * nside_sub : (i + 1) * nside_sub]
-            vars = self.data_vars[:, :, i * nside_sub : (i + 1) * nside_sub]
+            inds = hp.nest2ring(self.nside_base, range(i * nside_sub, (i + 1) * nside_sub))
+            mean = self.data_mean[:, :, inds]
+            vars = self.data_vars[:, :, inds]
             yield (mean, vars)
-
-
-    def proposal_spec_params(self, spec_params, sigma=0.01):
-        """ Function to calculate a set of proposal spectral parameters for the
-        next iteration of the sampler.
-
-        Parameters
-        ----------
-        spec_params: dictionary
-            Dictionary containing the current spectral parameters.
-        sigma: float
-            Scaling parameter controlling the range of proposal values.
-
-        Returns
-        -------
-        dictionary
-            Dictionary containing the proposal spectral parameters.
-        """
-        # NOTE: there should probably be a way to update this sigma parameter
-        # with the current parameter covariance?
-        prop = deepcopy(spec_params)
-        for par_name in self.var_pars:
-            prop[par_name] = prop[par_name] + sigma * np.random.randn()
-        return prop
 
     def f_matrix(self, spec_params, inst_params=None) :
         """
@@ -170,8 +147,8 @@ class MapLike(object) :
         # Note: do we need the cholesky decomposition if the amplitudes are not sampled?
         return amp_covar_inv
 
-    def get_amplitude_mean(self, d_map, n_ivar_map, spec_params, inst_params,
-                            f_matrix=None, nt_inv_matrix=None) :
+    def get_amplitude_mean(self, d_map, n_ivar_map, spec_params,
+                            inst_params=None, f_matrix=None, nt_inv_matrix=None):
         """
         Computes the best-fit amplitudes for all components.
 
