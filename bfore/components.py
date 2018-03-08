@@ -1,6 +1,5 @@
 from __future__ import print_function
 import numpy as np
-import matplotlib.pyplot as plt
 
 """ This is just a suggestion for how this submodule might look. Any additional
 SEDs or components that can be parameterized by a simple function of nu and

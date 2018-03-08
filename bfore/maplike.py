@@ -11,20 +11,8 @@ class MapLike(object) :
     Map-based likelihood
 
     NOTES:
-        - Need function to break up input data into large spectral parameter
-        pixels, and distribute to sampler one at a time, or across tasks.
-        - Decide how to pass spectral parameters between maplike and skymodel
-        and component classes. One dictionary with all parameters named
-        differently would be the easiest, but perhaps confusing.
-        - I think it is worth splitting this class up, as none of the methods
-        like f_matrix or get_amplitude_covariance, get_amplitude_mean, depend
-        on the state of the object. This should probably just be a class for
-        control, splitting up maps, and distributing / collecting tasks. Demote
-        these computational methods to functions, as this
-        would also separate the flow control and sampling output from the
-        actual method of sampling, which is probably easier to modify in the
-        future, and easier to unit test / debug.
-
+        - Implement a chi squared function to take in spectral parameters and
+        check the full likelihood for amplitudes
     """
     def __init__(self, config_dict, sky_model):#,instrument_model) :
         """
@@ -65,10 +53,20 @@ class MapLike(object) :
         self.nside_base = hp.get_nside(self.data_mean[0][0])
         return
 
-    def split_data(self):
+    def split_data(self, ipix=None):
         """ Generator function to return the data each task is to work on. This
         is one large spectral index pixel, and the corresponding pixels at the
         base amplitude resolution.
+
+        Parameters
+        ----------
+        ipix: int, list(int)
+            If passed this parameter instructs which pixels to return,
+            defined in the nested indexing scheme.  This may be a single
+            pixel, or a list of pixels, which will be returned as a
+            generator. If this parameter is not passed, all pixels will
+            be returned in the form of a generator
+            (optional, default=None).
 
         Returns
         -------
@@ -80,7 +78,16 @@ class MapLike(object) :
         npix_spec = hp.nside2npix(self.nside_spec)
         npix_base = hp.nside2npix(self.nside_base)
         nside_sub = int(npix_base / npix_spec)
-        for i in range(npix_spec):
+
+        if ipix is not None:
+            if isinstance(ipix, int):
+                ipixs = [ipix]
+            if isinstance(ipix, list):
+                ipixs = ipix
+        else:
+            ipixs = range(npix_spec)
+
+        for i in ipixs:
             inds = hp.nest2ring(self.nside_base, range(i * nside_sub, (i + 1) * nside_sub))
             mean = self.data_mean[:, :, inds]
             vars = self.data_vars[:, :, inds]
@@ -98,7 +105,7 @@ class MapLike(object) :
         inst_params: dict
             Parameters describing the instrument (none needed/implemented yet).
 
-        Returns
+        Returns::
         -------
         array_like(float)
             The returned array has shape (N_pol, N_comp, N_freq).
@@ -133,18 +140,12 @@ class MapLike(object) :
             noise covariance of all component amplitudes in each pixel and
             polarization channel.
         """
-        # Note: we should think about where it'd be better to compute/store the
-        # Cholesky decomposition of N_T (and even if it'd be better to store the
-        # Cholesky of N_T^{-1}).
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
         # (N_comp, N_pol, N_freq) x (N_comp, N_pol, N_freq) = (N_pol, N_comp, N_comp, N_freq)
         f_mat_outer = np.einsum("ijk,ljk->jilk", f_matrix, f_matrix)
         # (N_pol, N_comp, N_comp, N_freq) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp, N_comp)
         amp_covar_inv = np.einsum("ijkl,lin->injk", f_mat_outer, n_ivar_map)
-        # Get lower triangular cholesky decomposition (this automatically uses the last two dimensions).
-        #lower_cholesky = np.linalg.cholesky(amp_covar_inv)
-        # Note: do we need the cholesky decomposition if the amplitudes are not sampled?
         return amp_covar_inv
 
     def get_amplitude_mean(self, d_map, n_ivar_map, spec_params,
@@ -195,7 +196,7 @@ class MapLike(object) :
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
 
-    def marginal_spectral_likelihood(self, d_map, n_ivar_map, spec_params,
+    def marginal_spectral_likelihood(self, spec_params_list, d_map, n_ivar_map,
                                         inst_params=None, volume_prior=True,
                                         lnprior=None):
         """ Function to calculate the likelihood marginalized over amplitude
@@ -218,19 +219,22 @@ class MapLike(object) :
         float
             Likelihood at this point in parameter space.
         """
+        spec_params = {
+            'beta_s': spec_params_list[0],
+            'beta_d': spec_params_list[1],
+            'T_d': spec_params_list[2],
+            'nu_ref_d': 353.,
+            'nu_ref_s': 23.
+        }
         # calculate sed for proposal spectral parameters
         f_matrix = self.f_matrix(spec_params, inst_params=inst_params)
         # get amplitude covariance for proposal spectral parameters
-        # NOTE: should we recalculate the covariance at every single step, or
-        # every N_cov steps?
         amp_covar_matrix = self.get_amplitude_covariance(n_ivar_map,
                                             spec_params, inst_params, f_matrix)
         # get amplitude mean for proposal spectral parameters
         amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
                                             inst_params, f_matrix=f_matrix,
                                             nt_inv_matrix=amp_covar_matrix)
-        # NOTE: Need to add option to not cancel the volume prior, and option to
-        # add priors on the spectral indices.
         return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
 
 

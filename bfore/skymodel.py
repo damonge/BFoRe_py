@@ -53,12 +53,6 @@ class SkyModel(object) :
             Matrix containing the scaling for each parameter. Shape is
             (N_pol, N_comp, N_freq)
 
-        NOTES:
-            -This needs to be updated to include different SEDs for
-            polarization and temperature. Currently the returned shape is just
-            (N_comp, N_freq).
-            - we should think about what the best way of passing these
-            parameters is. One option would be to pass a dictionary, such that
-            params['sync'] be the parameters for the synchrotron model.
+
         """
         return np.array([sed(nu, params) for sed in self.components])
