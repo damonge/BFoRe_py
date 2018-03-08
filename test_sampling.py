@@ -1,12 +1,10 @@
 #!/home/ben/anaconda3/bin/python
 from bfore import MapLike, SkyModel
 from bfore.components import syncpl, dustmbb, cmb
+from bfore.sampling import run_emcee, clean_pixels
 import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
-import emcee
-from schwimmbad import MultiPool
-from functools import partial
 import corner
 from os.path import join, abspath
 
@@ -20,16 +18,6 @@ def add_noise(sigma_amin, nside):
     sigma_pix = np.sqrt(pixel_var(sigma_amin, nside))
     noise = np.random.randn(3, hp.nside2npix(nside)) * sigma_pix
     return noise
-
-def run_sampler(data, pos, func, nwalkers=10, ndim=3, nsamps=100, nburn=50):
-    print("Sampling")
-    (mean, var) = data
-    sampler = emcee.EnsembleSampler(nwalkers, ndim, func, args=(mean, var))
-    sampler.run_mcmc(pos, nsamps)
-    samples = sampler.chain[:, nburn:, :].reshape((-1, ndim))
-    print("Finished sampling.")
-    return samples
-
 
 if __name__=="__main__":
     # define true spectral parameters
@@ -87,36 +75,35 @@ if __name__=="__main__":
         hp.write_map(fm, m, overwrite=True)
         hp.write_map(fv, v, overwrite=True)
 
-    # start likelihood setup.
+    # likelihood setup.
     config_dict = {
         "nus": nus,
         "fpaths_mean": fpaths_mean,
         "fpaths_vars": fpaths_vars,
         "nside_spec": nside_spec,
             }
-
-    # initialize sky model and likelihood
     skymodel = SkyModel(components)
     ml = MapLike(config_dict, skymodel)
-    gen = ml.split_data(ipix=[10, 11])
 
+    # sampler setup
     sampler_args = {
         "ndim": 3,
         "nwalkers": 100,
         "nsamps": 500,
         "nburn": 50,
+        "pos0": [-3., 1.6, 20.]
     }
 
-    pos = [[beta_s_true, beta_d_true, T_d_true] + 1e-2 * np.random.randn(sampler_args['ndim']) for i in range(sampler_args['nwalkers'])]
-    sample_func = partial(run_sampler, pos=pos, func=ml.marginal_spectral_likelihood, **sampler_args)
-    with MultiPool() as pool:
-        samples_list = list(pool.map(sample_func, gen))
+    # do the cleaning over a list of pixels
+    ipixs = [10, 11]
+    samples_list = clean_pixels(ml, run_emcee, ipix=ipixs, **sampler_args)
 
-    for samples in samples_list:
+    # plot the results.
+    for ipix, samples in zip(ipixs, samples_list):
         beta_s_mcmc, beta_d_mcmc, T_d_mcmc = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                              zip(*np.percentile(samples, [16, 50, 84], axis=0)))
         print(beta_s_mcmc, beta_d_mcmc, T_d_mcmc)
-        print(samples.shape)
         fig = corner.corner(samples, labels=[r"$\beta_s$", r"$\beta_d$", r"$T_d$"],
                           truths=[beta_s_true, beta_d_true, T_d_true])
+        fig.savefig("fit_ipix{:04d}.pdf".format(ipix))
         plt.show()

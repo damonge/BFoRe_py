@@ -9,7 +9,7 @@ polarization.
 - Have a look at which parts of the likelihood need to be computed each time,
 and which can be calculated once on initialization of MapLike.
   - For example d_map * n_ivar_map in calculation of amp_covar can be calculated
-    once at the beginning of each sampling. 
+    once at the beginning of each sampling.
 - Add a method to MapLike that can accept masks, and let split_data know about
 it for default runs.
 - Do we want to implement an alternative method to sample amplitudes jointly?
@@ -17,3 +17,4 @@ it for default runs.
 spectral parameter maps.
 - Add method to calculate chi2 maps from amplitude maps for best-fit spec
 params.
+- Implement instrument model.
