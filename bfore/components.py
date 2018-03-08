@@ -1,16 +1,6 @@
 from __future__ import print_function
 import numpy as np
-
-""" This is just a suggestion for how this submodule might look. Any additional
-SEDs or components that can be parameterized by a simple function of nu and
-parameters can be added as a function.
-
-We pass parameters between the MapLike, SkyModel, and Component, classes as a
-single dictionary, with all the parameters as keywords. So all SED functions
-receive all of the parameters. Therefore, parameters in different functions
-must use different names. This is not ideal, and should probably be modified,
-but was the easiest thing right now.
-"""
+import inspect
 
 class Component(object) :
     """
@@ -48,6 +38,15 @@ class Component(object) :
         print("Component SED name: ", self.comp_name)
         print(self.sed.__doc__, "\n --------------- \n")
         pass
+
+    def get_parameters(self):
+        """ Method to fetch the keywork arguments for the various components
+        and return them. This is used to build a list of possible parameters
+        that may be varied by MapLike.
+        """
+        sig = inspect.signature(self.sed)
+        pars = list(sig.parameters.keys())
+        return list(filter(lambda par: par not in ['nu', 'args', 'kwargs'], pars))
 
 
 def cmb(nu, *args, **kwargs):

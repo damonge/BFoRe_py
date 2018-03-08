@@ -126,13 +126,7 @@ def test_maplike_grid():
         for i, b_d in enumerate(beta_d):
             for j, T in enumerate(T_d):
                 for k, b_s in enumerate(beta_s):
-                    params = {
-                        'beta_d': b_d,
-                        'T_d': T,
-                        'beta_s': b_s,
-                        'nu_ref_s': nu_ref_s,
-                        'nu_ref_d': nu_ref_d
-                    }
+                    params = [b_s, b_d, T]
                     lkl[i, j, k] = ml.marginal_spectral_likelihood(params, mean, var)
 
         fig, ax = plt.subplots(1, 1)

@@ -4,7 +4,6 @@ import healpy as hp
 from copy import deepcopy
 from .skymodel import SkyModel
 from .instrumentmodel import InstrumentModel
-import numpy as np
 
 class MapLike(object) :
     """
