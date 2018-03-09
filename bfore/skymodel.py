@@ -6,7 +6,7 @@ class SkyModel(object) :
     Sky model. Basically defined by a
     set of components and some extra parameters (e.g. polarization/temp)
     """
-    def __init__(self, components, is_polarized=False, extra_components=None):
+    def __init__(self, comp_names, is_polarized=False, extra_components=None):
         """
         Initializes a sky model
 
@@ -22,10 +22,17 @@ class SkyModel(object) :
             List of extra `ComponentBase` objects.
         """
         # Initialize list of requested components.
-        self.components = [Component(comp_name) for comp_name in components]
+        self.components = [Component(comp_name) for comp_name in comp_names]
+        # get list of all parameter names in the SEDs, excluding frequency `nu`.
+        self.param_names= []
+        for component in self.components:
+            self.param_names += component.get_parameters()
         return
 
-    def get_model_parameters(self):
+    def get_param_names(self):
+        return self.param_names
+
+    def get_model_description(self):
         """ Function to collect all the parameters required by the components
         in the model, this just prints the docstring of the SEDs specified
         in the `components` argument initlizing this class.
@@ -50,7 +57,15 @@ class SkyModel(object) :
         array_like(float)
             Matrix containing the scaling for each parameter. Shape is
             (N_pol, N_comp, N_freq)
-
-
         """
-        return np.array([sed(nu, params) for sed in self.components])
+        # if nu is not already array_like, make it so
+        if not hasattr(nu, '__iter__'):
+            nu = [nu]
+        # if nu is a list make it an array
+        nu = np.array(nu)
+        # convert dictionary of parameter names, to a list of tuples containing
+        # the arguments for each of the seds.
+        comp_par_names = [comp.get_parameters() for comp in self.components]
+        component_params = [(params[par_name] for par_name in comp_par_name) for comp_par_name in comp_par_names]
+        # calculate the seds 
+        return np.array([sed(nu, params) for (sed, params) in zip(self.components, component_params)])

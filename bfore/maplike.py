@@ -13,7 +13,7 @@ class MapLike(object) :
         - Implement a chi squared function to take in spectral parameters and
         check the full likelihood for amplitudes
     """
-    def __init__(self, config_dict, sky_model):#,instrument_model) :
+    def __init__(self, config_dict, skymodel):#,instrument_model) :
         """
         Initializes likelihood
 
@@ -37,11 +37,36 @@ class MapLike(object) :
             InstrumentModel object describing the instrument's response to the
             sky.
         """
+        self.sky = skymodel
         self.__dict__.update(config_dict)
-        self.sky = sky_model
+        self.check_parameters()
         #self.inst = instrument_model
         self.read_data()
         #Here we could precompute the F matrix and interpolate it over spectral parameters.
+
+    def check_parameters(self):
+        """ Method to check that all the parameters required by the skymodel
+        have been specified as either fixed, with a specific value, or are
+        desginated as variable.
+
+        Raises
+        ------
+        ConfigError
+        """
+        if any([par in self.fixed_pars for par in self.var_pars]):
+            print("Check parameter not in both fixed and variable parameters.")
+            exit()
+        # get parameters required by SkyModel
+        model_pars = set(self.sky.get_param_names())
+        # get fixed parameter names, specified in the config
+        config_pars = set(self.fixed_pars)
+        # update this with the variable parameter names, specified in the config
+        config_pars.update(set(self.var_pars))
+        # check these sets are the same
+        if not (model_pars == config_pars):
+            print("Parameter mismatch between model and MapLike configuration")
+            exit()
+        return
 
     def read_data(self):
         """ Method to read input data. The `self.data_mean` and `self.data_vars`
@@ -195,7 +220,7 @@ class MapLike(object) :
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
 
-    def marginal_spectral_likelihood(self, spec_params_list, d_map, n_ivar_map,
+    def marginal_spectral_likelihood(self, var_pars_list, d_map, n_ivar_map,
                                         inst_params=None, volume_prior=True,
                                         lnprior=None):
         """ Function to calculate the likelihood marginalized over amplitude
@@ -208,8 +233,9 @@ class MapLike(object) :
             Only contains pixels within the large pixel over which spectral
             parameters are constant. Shape (Nfreq, Npol, Npix) where
             Npix = (Nside_small / Nside_big) ** 2.
-        spec_params: dict
-            Parameters necessary to describe all components in the sky model
+        spec_params: list
+            List of the variable parameters that will be sampled. These must be
+            passed in the order of the list self.var_pars.
         inst_params: dict
             Parameters describing the instrument (none needed/implemented yet).
 
@@ -218,13 +244,10 @@ class MapLike(object) :
         float
             Likelihood at this point in parameter space.
         """
-        spec_params = {
-            'beta_s': spec_params_list[0],
-            'beta_d': spec_params_list[1],
-            'T_d': spec_params_list[2],
-            'nu_ref_d': 353.,
-            'nu_ref_s': 23.
-        }
+        # put the list of parameter values into a dictionary
+        spec_params = {par_name:par_val for par_name, par_val in zip(self.var_pars, var_pars_list)}
+        # add the parameters that are fixed
+        spec_params.update(self.fixed_pars)
         # calculate sed for proposal spectral parameters
         f_matrix = self.f_matrix(spec_params, inst_params=inst_params)
         # get amplitude covariance for proposal spectral parameters

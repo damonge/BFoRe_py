@@ -2,26 +2,15 @@ from __future__ import print_function
 import numpy as np
 import inspect
 
-class Component(object) :
-    """
-    Empty component class
-    No parameters
-
-    NOTE:
-        - If the models we are using remain at this level of complexity, I
-        don't think having a separate base class makes sense. These functions
-        should all just be assembled in SkyModel, in the same way as Component
-        is currently doing. This is currently just wrapping individual
-        functions, without adding anything.
-    """
-    def __init__(self, comp_name) :
+class Component(object):
+    def __init__(self, comp_name):
         """ SED must be in uK_RJ units.
         """
         self.comp_name = comp_name
         self.sed = globals()[comp_name]
         return
 
-    def __call__(self, nu, pars) :
+    def __call__(self, nu, pars):
         """ Method to call the SED with whichi a given instance was initialized.
 
         Parameters
@@ -29,10 +18,10 @@ class Component(object) :
         nu: float, or array_like(float)
             Frequency or list of frequencies, in GHz, at which to evaluate the
             SED.
-        pars:  dict
-            Dictionary of parameters taken by the SED.
+        pars:  tuple
+            Tuple containing the positional parameters taken by the SED.
         """
-        return self.sed(nu, **pars)
+        return self.sed(nu, *pars)
 
     def get_description(self):
         print("Component SED name: ", self.comp_name)
@@ -49,7 +38,7 @@ class Component(object) :
         return list(filter(lambda par: par not in ['nu', 'args', 'kwargs'], pars))
 
 
-def cmb(nu, *args, **kwargs):
+def cmb(nu):
     """ Function to compute CMB SED.
 
     Parameters
@@ -57,15 +46,13 @@ def cmb(nu, *args, **kwargs):
     nu: float, or array_like(float)
         Frequency in GHz.
     """
-    if isinstance(nu, (float, int)):
-        nu = [nu]
-    nu = np.array(nu)
     x = 0.0176086761 * nu
     ex = np.exp(x)
     sed = ex * (x / (ex - 1)) ** 2
     return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
-def syncpl(nu, *args, **kwargs):
+
+def syncpl(nu, nu_ref_s, beta_s):
     """ Function to compute synchrotron power law SED.
 
     Parameters
@@ -80,15 +67,12 @@ def syncpl(nu, *args, **kwargs):
     array_like(float)
         Synchroton SED relative to reference frequency.
     """
-    if isinstance(nu, (float, int)):
-        nu = [nu]
-    nu = np.array(nu)
-    x = nu / kwargs['nu_ref_s']
-    sed = x ** kwargs['beta_s']
+    x = nu / nu_ref_s
+    sed = x ** beta_s
     return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
 
-def dustmbb(nu, * args, **kwargs):
+def dustmbb(nu, nu_ref_d, beta_d, T_d):
     """ Function to compute modified blackbody dust SED.
 
     Parameters
@@ -107,10 +91,7 @@ def dustmbb(nu, * args, **kwargs):
     array_like(float)
         SED of dust modified black body relative to reference frequency.
     """
-    if isinstance(nu, (float, int)):
-        nu = [nu]
-    nu = np.array(nu)
-    x_to = 0.0479924466 * nu / kwargs['T_d']
-    x_from = 0.0479924466 * kwargs['nu_ref_d'] / kwargs['T_d']
-    sed = (nu / kwargs['nu_ref_d']) ** (1 + kwargs['beta_d']) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)
+    x_to = 0.0479924466 * nu / T_d
+    x_from = 0.0479924466 * nu_ref_d / T_d
+    sed = (nu / nu_ref_d) ** (1 + beta_d) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)
     return np.concatenate((sed, sed, sed)).reshape((3, -1))

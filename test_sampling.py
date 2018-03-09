@@ -54,9 +54,9 @@ if __name__=="__main__":
     temp_c = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
 
     # the synchrotron and dust signals separates
-    synch = np.array([temp_s * syncpl(nu, beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus])
-    dust = np.array([temp_d * dustmbb(nu, beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
-    cmbs = np.array([temp_c * cmb(nu) for nu in nus])
+    synch = np.array([temp_s * syncpl(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus])
+    dust = np.array([temp_d * dustmbb(np.array([nu]), beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
+    cmbs = np.array([temp_c * cmb(np.array([nu])) for nu in nus])
 
     # the noise maps
     noise = [add_noise(sig, nside) for sig in sigmas]
@@ -81,17 +81,19 @@ if __name__=="__main__":
         "fpaths_mean": fpaths_mean,
         "fpaths_vars": fpaths_vars,
         "nside_spec": nside_spec,
+        "fixed_pars": {"nu_ref_d": 353., "nu_ref_s": 23., "T_d": 20.},
+        "var_pars": ["beta_s", "beta_d"]
             }
     skymodel = SkyModel(components)
     ml = MapLike(config_dict, skymodel)
 
     # sampler setup
     sampler_args = {
-        "ndim": 3,
+        "ndim": 2,
         "nwalkers": 10,
         "nsamps": 300,
         "nburn": 50,
-        "pos0": [-3., 1.6, 20.]
+        "pos0": [-3., 1.6]
     }
 
     # do the cleaning over a list of pixels
@@ -100,10 +102,10 @@ if __name__=="__main__":
 
     # plot the results.
     for ipix, samples in zip(ipixs, samples_list):
-        beta_s_mcmc, beta_d_mcmc, T_d_mcmc = map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
+        beta_s_mcmc, beta_d_mcmc= map(lambda v: (v[1], v[2]-v[1], v[1]-v[0]),
                              zip(*np.percentile(samples, [16, 50, 84], axis=0)))
-        print(beta_s_mcmc, beta_d_mcmc, T_d_mcmc)
-        fig = corner.corner(samples, labels=[r"$\beta_s$", r"$\beta_d$", r"$T_d$"],
-                          truths=[beta_s_true, beta_d_true, T_d_true])
+        print(beta_s_mcmc, beta_d_mcmc)
+        fig = corner.corner(samples, labels=[r"$\beta_s$", r"$\beta_d$"],
+                          truths=[beta_s_true, beta_d_true])
         fig.savefig("fit_ipix{:04d}.pdf".format(ipix))
         plt.show()
