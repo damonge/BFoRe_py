@@ -10,14 +10,4 @@ and which can be calculated once on initialization of MapLike.
 it for default runs.
 - Add method for maringal spectral likelihood to return best-fit amplitdue and
 spectral parameter maps.
-- Add method to calculate chi2 maps from amplitude maps for best-fit spec
-params.
 - Implement instrument model.
-
-
-Plan for which parameters to vary:
-
-  - Tell MapLike which parameters are variable.
-  - MapLike can inspect SkyModel to find which parameters are required.
-  - List of parameters in marginal_spectral_likelihood() has same ordering as
-  list of variable parameters.

@@ -27,6 +27,9 @@ class SkyModel(object) :
         self.param_names= []
         for component in self.components:
             self.param_names += component.get_parameters()
+        # get list of lists of parameter names, per component
+        # (length = len(components)).
+        self.comp_par_names = [comp.get_parameters() for comp in self.components]
         return
 
     def get_param_names(self):
@@ -65,7 +68,6 @@ class SkyModel(object) :
         nu = np.array(nu)
         # convert dictionary of parameter names, to a list of tuples containing
         # the arguments for each of the seds.
-        comp_par_names = [comp.get_parameters() for comp in self.components]
-        component_params = [(params[par_name] for par_name in comp_par_name) for comp_par_name in comp_par_names]
-        # calculate the seds 
+        component_params = [tuple(params[par_name] for par_name in comp_par_names) for comp_par_names in self.comp_par_names]
+        # calculate the seds
         return np.array([sed(nu, params) for (sed, params) in zip(self.components, component_params)])

@@ -26,8 +26,8 @@ if __name__=="__main__":
     T_d_true = 20.
     nu_ref_s = 23.
     nu_ref_d = 353.
-    nside_spec = 16
-    nside = 256
+    nside_spec = 2
+    nside = 8
     true_params = {
         'beta_d': beta_d_true,
         'T_d': T_d_true,
@@ -39,7 +39,7 @@ if __name__=="__main__":
     components = ["syncpl", "dustmbb", "cmb"]
 
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
-    sigmas = [1. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
+    sigmas = [1 * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
 
     # generate fake synch and dust as GRFs
     ells = np.linspace(0, 3 * nside, 3 * nside + 1)
@@ -52,6 +52,10 @@ if __name__=="__main__":
     temp_s = np.array(hp.synfast([cl_s, cl_s, cl_s, cl_s], nside, verbose=False, pol=True))
     temp_d = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
     temp_c = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
+
+    temp_s = np.ones_like(temp_s) * 15.
+    temp_d = np.ones_like(temp_s) * 20.
+    temp_c = np.ones_like(temp_s) * 25.
 
     # the synchrotron and dust signals separates
     synch = np.array([temp_s * syncpl(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus])
@@ -95,6 +99,10 @@ if __name__=="__main__":
         "nburn": 50,
         "pos0": [-3., 1.6]
     }
+
+    gen = ml.split_data()
+    for (mean, var) in gen:
+        print(ml.chi2((-3, 1.6), mean, var))
 
     # do the cleaning over a list of pixels
     ipixs = [10, 11, 12, 13]

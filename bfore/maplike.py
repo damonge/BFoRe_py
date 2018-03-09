@@ -4,6 +4,7 @@ import healpy as hp
 from copy import deepcopy
 from .skymodel import SkyModel
 from .instrumentmodel import InstrumentModel
+from scipy import stats
 
 class MapLike(object) :
     """
@@ -117,16 +118,16 @@ class MapLike(object) :
             vars = self.data_vars[:, :, inds]
             yield (mean, vars)
 
-    def f_matrix(self, spec_params, inst_params=None) :
+    def f_matrix(self, var_pars_list, inst_params=None) :
         """
         Returns the instrument's response to each of the sky components in each
         frequency channel.
 
         Parameters
         ----------
-        spec_params: dict
+        var_pars_list: list
             Parameters necessary to describe all components in the sky model
-        inst_params: dict
+        inst_params: dictf(x, df, loc=0,
             Parameters describing the instrument (none needed/implemented yet).
 
         Returns::
@@ -134,6 +135,10 @@ class MapLike(object) :
         array_like(float)
             The returned array has shape (N_pol, N_comp, N_freq).
         """
+        # put the list of parameter values into a dictionary
+        spec_params = {par_name:par_val for par_name, par_val in zip(self.var_pars, var_pars_list)}
+        # add the parameters that are fixed
+        spec_params.update(self.fixed_pars)
         #return self.inst.convolve_sed(self.sky.fnu,args=spec_params,instpar=inst_params)
         return self.sky.fnu(self.nus, spec_params)
 
@@ -220,7 +225,7 @@ class MapLike(object) :
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
 
-    def marginal_spectral_likelihood(self, var_pars_list, d_map, n_ivar_map,
+    def marginal_spectral_likelihood(self, spec_params, d_map, n_ivar_map,
                                         inst_params=None, volume_prior=True,
                                         lnprior=None):
         """ Function to calculate the likelihood marginalized over amplitude
@@ -244,10 +249,6 @@ class MapLike(object) :
         float
             Likelihood at this point in parameter space.
         """
-        # put the list of parameter values into a dictionary
-        spec_params = {par_name:par_val for par_name, par_val in zip(self.var_pars, var_pars_list)}
-        # add the parameters that are fixed
-        spec_params.update(self.fixed_pars)
         # calculate sed for proposal spectral parameters
         f_matrix = self.f_matrix(spec_params, inst_params=inst_params)
         # get amplitude covariance for proposal spectral parameters
@@ -258,6 +259,110 @@ class MapLike(object) :
                                             inst_params, f_matrix=f_matrix,
                                             nt_inv_matrix=amp_covar_matrix)
         return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
+
+    def chi2(self, spec_params, d_map, n_ivar_map, inst_params=None,
+                f_matrix=None, volume_prior=True, lnprior=None):
+        """ Function to calculate the chi2 of a given set of spectral
+        parameters.
+
+        This function first computes the mean amplitude templates, and then uses
+        these in the unmarginalized likelihood to compute the chi2 defined by:
+
+        ..math::
+            \chi^2 = (d-FT)^T N^{-1}(d-FT)
+
+        Parameters
+        ----------
+        d_map, n_ivar_map: array_like(float)
+            Subset of input data pixel mean and pixel variance respectively.
+            Only contains pixels within the large pixel over which spectral
+            parameters are constant. Shape (Nfreq, Npol, Npix) where
+            Npix = (Nside_small / Nside_big) ** 2.
+        spec_params: list
+            List of the variable parameters that will be sampled. These must be
+            passed in the order of the list self.var_pars.
+        inst_params: dict
+            Parameters describing the instrument (none needed/implemented yet).
+
+        Returns
+        -------
+        float
+            Chi squared for given spectral parameters.
+        """
+        if f_matrix is None:
+            f_matrix = self.f_matrix(spec_params, inst_params)
+
+        amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
+                                            inst_params=None, f_matrix=None,
+                                            nt_inv_matrix=None)
+        #             (N_comp, N_pol, N_freq) * (N_pol, N_pix, N_comp) = (N_freq, N_pol, N_pix)
+        res = d_map - np.einsum("ijk,jli->kjl", f_matrix, amp_mean)
+        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
+
+        chi2 = np.einsum("ijk,ijk,ijk->", res, n_ivar_map, res)
+        return chi2
+
+    def chi2perdof(self, spec_params, d_map, n_ivar_map, inst_params=None,
+                f_matrix=None, volume_prior=True, lnprior=None):
+        """ Function to calculate the reduced chi2 of a given set of spectral
+        parameters.
+
+        This function first computes the mean amplitude templates, and then uses
+        these in the unmarginalized likelihood to compute the chi2 defined by:
+
+        ..math::
+            \chi^2 = (d-FT)^T N^{-1}(d-FT) / {\rm dof}
+
+        Parameters
+        ----------
+        d_map, n_ivar_map: array_like(float)
+            Subset of input data pixel mean and pixel variance respectively.
+            Only contains pixels within the large pixel over which spectral
+            parameters are constant. Shape (Nfreq, Npol, Npix) where
+            Npix = (Nside_small / Nside_big) ** 2.
+        spec_params: list
+            List of the variable parameters that will be sampled. These must be
+            passed in the order of the list self.var_pars.
+        inst_params: dict
+            Parameters describing the instrument (none needed/implemented yet).
+
+        Returns
+        -------
+        float
+            Chi squared per degree of freedom for given spectral parameters.
+        """
+        chi2 = self.chi2(spec_params, d_map, n_ivar_map, inst_params=None,
+                    f_matrix=f_matrix, volume_prior=volume_prior, lnprior=lnprior)
+        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
+        return chi2 / float(dof)
+
+    def pval(self, spec_params, d_map, n_ivar_map, inst_params=None,
+                f_matrix=None, volume_prior=True, lnprior=None):
+        """ Function to calculate the p-value of a given set of spectral
+        parameters.
+
+        Parameters
+        ----------
+        d_map, n_ivar_map: array_like(float)
+            Subset of input data pixel mean and pixel variance respectively.
+            Only contains pixels within the large pixel over which spectral
+            parameters are constant. Shape (Nfreq, Npol, Npix) where
+            Npix = (Nside_small / Nside_big) ** 2.
+        spec_params: list
+            List of the variable parameters that will be sampled. These must be
+            passed in the order of the list self.var_pars.
+        inst_params: dict
+            Parameters describing the instrument (none needed/implemented yet).
+
+        Returns
+        -------
+        float
+            p-value for given spectral parameters.
+        """
+        chi2 = self.chi2(spec_params, d_map, n_ivar_map, inst_params=None,
+                    f_matrix=f_matrix, volume_prior=volume_prior, lnprior=lnprior)
+        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
+        return 1. - stats.chi2.cdf(chi2, dof)
 
 
 def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):

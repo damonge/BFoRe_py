@@ -10,7 +10,7 @@ class Component(object):
         self.sed = globals()[comp_name]
         return
 
-    def __call__(self, nu, pars):
+    def __call__(self, nu, args):
         """ Method to call the SED with whichi a given instance was initialized.
 
         Parameters
@@ -18,10 +18,10 @@ class Component(object):
         nu: float, or array_like(float)
             Frequency or list of frequencies, in GHz, at which to evaluate the
             SED.
-        pars:  tuple
+        args:  tuple
             Tuple containing the positional parameters taken by the SED.
         """
-        return self.sed(nu, *pars)
+        return self.sed(nu, *args)
 
     def get_description(self):
         print("Component SED name: ", self.comp_name)
