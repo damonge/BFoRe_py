@@ -34,7 +34,7 @@ def run_emcee(data, func, pos0=None, nwalkers=100, ndim=3, nsamps=500, nburn=50,
     Returns
     -------
     array_like(float)
-        Chain of samples of shape ( nsamps * nwalkers - nburn * nwalkers, ndim).
+        Chain of samples of shape (nsamps * nwalkers - nburn * nwalkers, ndim).
     """
     if verbose:
         print("Sampling")

@@ -6,8 +6,6 @@ class SkyModel(object) :
     Sky model. Basically defined by a
     set of components and some extra parameters (e.g. polarization/temp)
     """
-    comps=[]
-
     def __init__(self, components, is_polarized=False, extra_components=None):
         """
         Initializes a sky model

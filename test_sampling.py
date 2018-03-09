@@ -88,14 +88,14 @@ if __name__=="__main__":
     # sampler setup
     sampler_args = {
         "ndim": 3,
-        "nwalkers": 100,
-        "nsamps": 500,
+        "nwalkers": 10,
+        "nsamps": 300,
         "nburn": 50,
         "pos0": [-3., 1.6, 20.]
     }
 
     # do the cleaning over a list of pixels
-    ipixs = [10, 11]
+    ipixs = [10, 11, 12, 13]
     samples_list = clean_pixels(ml, run_emcee, ipix=ipixs, **sampler_args)
 
     # plot the results.
