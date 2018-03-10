@@ -30,6 +30,7 @@ class SkyModel(object) :
         # get list of lists of parameter names, per component
         # (length = len(components)).
         self.comp_par_names = [comp.get_parameters() for comp in self.components]
+        self.ncomps = len(self.components)
         return
 
     def get_param_names(self):

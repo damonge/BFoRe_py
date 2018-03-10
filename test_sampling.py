@@ -102,7 +102,8 @@ if __name__=="__main__":
 
     gen = ml.split_data()
     for (mean, var) in gen:
-        print(ml.chi2((-3, 1.6), mean, var))
+        print("p-value for true params: ", ml.pval((-3., 1.6), mean, var))
+        print("chi2 per dof for true params: ", ml.chi2perdof((-3., 1.6), mean, var))
 
     # do the cleaning over a list of pixels
     ipixs = [10, 11, 12, 13]

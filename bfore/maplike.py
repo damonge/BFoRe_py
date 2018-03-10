@@ -43,7 +43,15 @@ class MapLike(object) :
         self.check_parameters()
         #self.inst = instrument_model
         self.read_data()
-        #Here we could precompute the F matrix and interpolate it over spectral parameters.
+        # number of amplitude pixels per spectral index pixel
+        self.npix_base = hp.nside2npix(self.nside_base)
+        self.npix_spec = hp.nside2npix(self.nside_spec)
+        self.nside_sub = int(self.npix_base / self.npix_spec)
+        # numer of degrees of freedom
+        n_amps = self.sky.ncomps * 3 * self.nside_sub
+        n_spec = len(self.var_pars)
+        n_data = len(self.data_mean.flatten()) / self.npix_spec
+        self.dof = float(n_data - n_amps - n_spec)
 
     def check_parameters(self):
         """ Method to check that all the parameters required by the skymodel
@@ -100,20 +108,16 @@ class MapLike(object) :
             and variance within one large pixel over which the spectral
             paraemters are held constant.
         """
-        npix_spec = hp.nside2npix(self.nside_spec)
-        npix_base = hp.nside2npix(self.nside_base)
-        nside_sub = int(npix_base / npix_spec)
-
         if ipix is not None:
             if isinstance(ipix, int):
                 ipixs = [ipix]
             if isinstance(ipix, list):
                 ipixs = ipix
         else:
-            ipixs = range(npix_spec)
+            ipixs = range(self.npix_spec)
 
         for i in ipixs:
-            inds = hp.nest2ring(self.nside_base, range(i * nside_sub, (i + 1) * nside_sub))
+            inds = hp.nest2ring(self.nside_base, range(i * self.nside_sub, (i + 1) * self.nside_sub))
             mean = self.data_mean[:, :, inds]
             vars = self.data_vars[:, :, inds]
             yield (mean, vars)
@@ -291,16 +295,16 @@ class MapLike(object) :
         """
         if f_matrix is None:
             f_matrix = self.f_matrix(spec_params, inst_params)
-
+        # calculate amplitude templates for given spectral parameters
         amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
                                             inst_params=None, f_matrix=None,
                                             nt_inv_matrix=None)
-        #             (N_comp, N_pol, N_freq) * (N_pol, N_pix, N_comp) = (N_freq, N_pol, N_pix)
+        # calculate residuals
+        # f_matrix and amp_mean dims: (N_comp, N_pol, N_freq) *
+        # (N_pol, N_pix, N_comp) = (N_freq, N_pol, N_pix)
         res = d_map - np.einsum("ijk,jli->kjl", f_matrix, amp_mean)
-        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
-
-        chi2 = np.einsum("ijk,ijk,ijk->", res, n_ivar_map, res)
-        return chi2
+        # multiply residuals by weights
+        return np.einsum("ijk,ijk,ijk->", res, n_ivar_map, res)
 
     def chi2perdof(self, spec_params, d_map, n_ivar_map, inst_params=None,
                 f_matrix=None, volume_prior=True, lnprior=None):
@@ -332,9 +336,9 @@ class MapLike(object) :
             Chi squared per degree of freedom for given spectral parameters.
         """
         chi2 = self.chi2(spec_params, d_map, n_ivar_map, inst_params=None,
-                    f_matrix=f_matrix, volume_prior=volume_prior, lnprior=lnprior)
-        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
-        return chi2 / float(dof)
+                            f_matrix=f_matrix, volume_prior=volume_prior,
+                            lnprior=lnprior)
+        return chi2 / float(self.dof)
 
     def pval(self, spec_params, d_map, n_ivar_map, inst_params=None,
                 f_matrix=None, volume_prior=True, lnprior=None):
@@ -360,9 +364,9 @@ class MapLike(object) :
             p-value for given spectral parameters.
         """
         chi2 = self.chi2(spec_params, d_map, n_ivar_map, inst_params=None,
-                    f_matrix=f_matrix, volume_prior=volume_prior, lnprior=lnprior)
-        dof = len(d_map.flatten()) - len(self.var_pars) - len(amp_mean.flatten())
-        return 1. - stats.chi2.cdf(chi2, dof)
+                            f_matrix=f_matrix, volume_prior=volume_prior,
+                            lnprior=lnprior)
+        return 1. - stats.chi2.cdf(chi2, self.dof)
 
 
 def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
@@ -383,5 +387,6 @@ def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
     NOTE:
         - Add option for choosing polarization or not.
     """
-    gen = (hp.read_map(fpath, verbose=verbose, field=(0, 1, 2), **kwargs) for fpath in fpaths)
+    gen = (hp.read_map(fpath, verbose=verbose, field=(0, 1, 2), **kwargs) for
+            fpath in fpaths)
     return np.array(list(gen))
