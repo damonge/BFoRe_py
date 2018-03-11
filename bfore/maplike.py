@@ -368,7 +368,6 @@ class MapLike(object) :
                             lnprior=lnprior)
         return 1. - stats.chi2.cdf(chi2, self.dof)
 
-
 def read_hpix_maps(fpaths, verbose=False, *args, **kwargs):
     """ Convenience function for reading in a list of paths to healpix maps and
     returning an array of the maps.

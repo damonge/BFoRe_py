@@ -1,3 +1,7 @@
 healpy
 numpy
 emcee
+unittest
+scipy
+corner
+schwimmbad
