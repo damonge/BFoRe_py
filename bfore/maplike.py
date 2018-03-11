@@ -4,7 +4,7 @@ import healpy as hp
 from copy import deepcopy
 from .skymodel import SkyModel
 from .instrumentmodel import InstrumentModel
-from scipy import stats
+from scipy import stats, linalg
 
 class MapLike(object) :
     """
@@ -222,10 +222,15 @@ class MapLike(object) :
         if nt_inv_matrix is None:
             nt_inv_matrix = self.get_amplitude_covariance(n_ivar_map,
                 spec_params, inst_params=inst_params, f_matrix=f_matrix)
-        # NOTE: n_ivar_map * d_map should not be calculated for each iteration
+        # NOTE:
+        #   - n_ivar_map * d_map should not be calculated for each iteration
+        #   - einsum only optimized for contracting two matrices at a time .
+        #   so should split this up into two steps for speed up.
         # (N_comp, N_pol, N_freq) * (N_freq, N_pol, N_pix) * (N_freq, N_pol, N_pix) = (N_pol, N_pix, N_comp)
         y = np.einsum("jik,kil,kil->ilj", f_matrix, n_ivar_map, d_map)
         # Get the solution to: N_T_inv T_bar = F^T N^-1 d
+        # note scipy.linalg implementation is faster, but can not handle
+        # leading dimensions like numpy can.
         amp_mean = np.linalg.solve(nt_inv_matrix, y)
         return amp_mean
 
@@ -262,6 +267,8 @@ class MapLike(object) :
         amp_mean = self.get_amplitude_mean(d_map, n_ivar_map, spec_params,
                                             inst_params, f_matrix=f_matrix,
                                             nt_inv_matrix=amp_covar_matrix)
+        # NOTE:
+        #   - einsum only optimized for two matrices contraction, so split this
         return np.einsum("ijk,ijkl,ijl->", amp_mean, amp_covar_matrix, amp_mean)
 
     def chi2(self, spec_params, d_map, n_ivar_map, inst_params=None,

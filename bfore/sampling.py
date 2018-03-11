@@ -2,6 +2,7 @@ import numpy as np
 import emcee
 from schwimmbad import MultiPool
 from functools import partial
+from scipy import linalg
 
 def run_emcee(data, func, pos0=None, nwalkers=100, ndim=3, nsamps=500, nburn=50,
                 verbose=False):
