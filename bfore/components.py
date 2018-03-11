@@ -72,6 +72,27 @@ def syncpl(nu, nu_ref_s, beta_s):
     return np.concatenate((sed, sed, sed)).reshape((3, -1))
 
 
+def sync_curvedpl(nu, nu_ref_s, beta_s, beta_c):
+    """ Function to compute synchrotron power law SED.
+
+    Parameters
+    ----------
+    nu: float, or array_like(float)
+        Frequency in GHz.
+    beta_s: float
+        Power law index in RJ units.
+
+    Returns
+    -------
+    array_like(float)
+        Synchroton SED relative to reference frequency.
+    """
+    x = nu / nu_ref_s
+    sed = x ** (beta_s + beta_c * np.log(nu / nu_ref_s))
+    return np.concatenate((sed, sed, sed)).reshape((3, -1))
+
+
+
 def dustmbb(nu, nu_ref_d, beta_d, T_d):
     """ Function to compute modified blackbody dust SED.
 

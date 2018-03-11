@@ -18,9 +18,9 @@ if __name__=="__main__":
     # do the cleaning over the same list of pixels.
     sampler_args = {
         "ndim": len(true_params),
-        "nwalkers": 10,
-        "nsamps": 300,
-        "nburn": 50,
+        "nwalkers": 100,
+        "nsamps": 500,
+        "nburn": 100,
         "pos0": true_params
     }
     for samples in clean_pixels(ml, run_emcee, ipix=ipixs, **sampler_args):
@@ -30,6 +30,6 @@ if __name__=="__main__":
         print("Results: \n", )
         print("Param medians: ", [p[0] for p in params_mcmc])
         print("Param spread, 14th to 84th percentile: ", [p[1] + p[2] for p in params_mcmc])
-        labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$"]
+        labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$", r"$\beta_c$"]
         fig = corner.corner(samples, labels=labels, truths=true_params)
         plt.show()

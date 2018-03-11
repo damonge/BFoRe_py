@@ -9,12 +9,13 @@ def setup_maplike():
     # define true spectral parameters
     beta_s_true = -3.
     beta_d_true = 1.6
+    beta_c_true = 0
     T_d_true = 20.
     nu_ref_s = 23.
     nu_ref_d = 353.
     nside_spec = 2
     nside = 8
-    components = ["syncpl", "dustmbb", "cmb"]
+    components = ["sync_curvedpl", "dustmbb", "cmb"]
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
     sigmas = [1 * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
     # generate fake synch and dust as GRFs
@@ -52,11 +53,11 @@ def setup_maplike():
             "fpaths_vars": fpaths_vars,
             "nside_spec": nside_spec,
             "fixed_pars": {"nu_ref_d": nu_ref_d, "nu_ref_s": nu_ref_s},
-            "var_pars": ["beta_s", "beta_d", "T_d"]
+            "var_pars": ["beta_s", "beta_d", "T_d", "beta_c"]
             }
         skymodel = SkyModel(components)
         ml = MapLike(config_dict, skymodel)
-    return ml, (beta_s_true, beta_d_true, T_d_true)
+    return ml, (beta_s_true, beta_d_true, T_d_true, beta_c_true)
 
 def pixel_var(sigma_amin, nside):
     """ Function to compute the variance of the noise in each pixel for a given
