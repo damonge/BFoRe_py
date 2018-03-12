@@ -7,6 +7,7 @@ import corner
 
 if __name__=="__main__":
     ipixs = [10, 11, 12, 13]
+    ipixs=None
     ml, true_params = setup_maplike()
     # Calculate the p value and reduced chi squred for the true parameter values
     # in the 4 pixels above.
@@ -14,7 +15,6 @@ if __name__=="__main__":
     for (mean, var) in pixel_data:
         print("p-value for true params: ", ml.pval(true_params, mean, var))
         print("chi2 per dof for true params: ", ml.chi2perdof(true_params, mean, var))
-
     # do the cleaning over the same list of pixels.
     sampler_args = {
         "ndim": len(true_params),
@@ -30,6 +30,6 @@ if __name__=="__main__":
         print("Results: \n", )
         print("Param medians: ", [p[0] for p in params_mcmc])
         print("Param spread, 14th to 84th percentile: ", [p[1] + p[2] for p in params_mcmc])
-        labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$", r"$\beta_c$"]
-        fig = corner.corner(samples, labels=labels, truths=true_params)
-        plt.show()
+        #labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$", r"$\beta_c$"]
+        #fig = corner.corner(samples, labels=labels, truths=true_params)
+        #plt.show()

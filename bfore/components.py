@@ -73,7 +73,7 @@ def syncpl(nu, nu_ref_s, beta_s):
 
 
 def sync_curvedpl(nu, nu_ref_s, beta_s, beta_c):
-    """ Function to compute synchrotron power law SED.
+    """ Function to compute curved synchrotron power law SED.
 
     Parameters
     ----------
@@ -81,6 +81,8 @@ def sync_curvedpl(nu, nu_ref_s, beta_s, beta_c):
         Frequency in GHz.
     beta_s: float
         Power law index in RJ units.
+    beta_c: float
+        Power law index curvature.
 
     Returns
     -------

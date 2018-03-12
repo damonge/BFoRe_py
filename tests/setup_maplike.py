@@ -1,5 +1,5 @@
 from bfore import MapLike, SkyModel
-from bfore.components import syncpl, dustmbb, cmb
+from bfore.components import syncpl, dustmbb, cmb, sync_curvedpl
 import tempfile
 import numpy as np
 import healpy as hp
@@ -9,7 +9,7 @@ def setup_maplike():
     # define true spectral parameters
     beta_s_true = -3.
     beta_d_true = 1.6
-    beta_c_true = 0
+    beta_c_true = 0.05
     T_d_true = 20.
     nu_ref_s = 23.
     nu_ref_d = 353.
@@ -17,7 +17,7 @@ def setup_maplike():
     nside = 8
     components = ["sync_curvedpl", "dustmbb", "cmb"]
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
-    sigmas = [1 * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
+    sigmas = [100. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
     # generate fake synch and dust as GRFs
     ells = np.linspace(0, 3 * nside, 3 * nside + 1)
     cl_s = np.zeros_like(ells)
@@ -29,7 +29,7 @@ def setup_maplike():
     temp_d = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
     temp_c = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))
     # the synchrotron and dust signals separates
-    synch = np.array([temp_s * syncpl(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s) for nu in nus])
+    synch = np.array([temp_s * sync_curvedpl(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s, beta_c=beta_c_true) for nu in nus])
     dust = np.array([temp_d * dustmbb(np.array([nu]), beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
     cmbs = np.array([temp_c * cmb(np.array([nu])) for nu in nus])
     # the noise maps
