@@ -17,7 +17,7 @@ def setup_maplike():
     nside = 8
     components = ["sync_curvedpl", "dustmbb", "cmb"]
     nus = [10., 20., 25., 45., 90., 100., 143., 217., 300., 350., 400., 500.]
-    sigmas = [100. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
+    sigmas = [1. * sig for sig in [110., 50., 36., 8., 4, 4, 10.1, 20., 25., 30., 40., 50.]]
     # generate fake synch and dust as GRFs
     ells = np.linspace(0, 3 * nside, 3 * nside + 1)
     cl_s = np.zeros_like(ells)
