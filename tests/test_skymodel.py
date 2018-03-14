@@ -29,5 +29,5 @@ class test_SkyModel(TestCase):
         nfreqs = 10
         nus = np.array(np.logspace(1, 3, nfreqs))
         f_matrix = self.skymodel.fnu(nus, params)
-        self.assertEqual(f_matrix.shape, (3, 3, 10))
+        self.assertEqual(f_matrix.shape, (3, 10))
         return

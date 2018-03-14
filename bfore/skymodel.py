@@ -71,4 +71,5 @@ class SkyModel(object) :
         # the arguments for each of the seds.
         component_params = [tuple(params[par_name] for par_name in comp_par_names) for comp_par_names in self.comp_par_names]
         # calculate the seds
+        # Returns Ncomp x Nfreq array
         return np.array([sed(nu, params) for (sed, params) in zip(self.components, component_params)])

@@ -49,7 +49,7 @@ def cmb(nu):
     x = 0.0176086761 * nu
     ex = np.exp(x)
     sed = ex * (x / (ex - 1)) ** 2
-    return np.concatenate((sed, sed, sed)).reshape((3, -1))
+    return sed
 
 
 def syncpl(nu, nu_ref_s, beta_s):
@@ -69,7 +69,7 @@ def syncpl(nu, nu_ref_s, beta_s):
     """
     x = nu / nu_ref_s
     sed = x ** beta_s
-    return np.concatenate((sed, sed, sed)).reshape((3, -1))
+    return sed
 
 
 def sync_curvedpl(nu, nu_ref_s, beta_s, beta_c):
@@ -91,9 +91,7 @@ def sync_curvedpl(nu, nu_ref_s, beta_s, beta_c):
     """
     x = nu / nu_ref_s
     sed = x ** (beta_s + beta_c * np.log(nu / nu_ref_s))
-    return np.concatenate((sed, sed, sed)).reshape((3, -1))
-
-
+    return sed
 
 def dustmbb(nu, nu_ref_d, beta_d, T_d):
     """ Function to compute modified blackbody dust SED.
@@ -117,4 +115,4 @@ def dustmbb(nu, nu_ref_d, beta_d, T_d):
     x_to = 0.0479924466 * nu / T_d
     x_from = 0.0479924466 * nu_ref_d / T_d
     sed = (nu / nu_ref_d) ** (1 + beta_d) * (np.exp(x_from) - 1) / (np.exp(x_to) - 1)
-    return np.concatenate((sed, sed, sed)).reshape((3, -1))
+    return sed
