@@ -200,7 +200,7 @@ class MapLike(object) :
         float
             Prior at this point in parameter space.
         """
-        return -np.sum(((spec_params-self.var_prior_mean)*self.var_prior_iwidth)**2)
+        return -0.5*np.sum(((spec_params-self.var_prior_mean)*self.var_prior_iwidth)**2)
 
     def marginal_spectral_likelihood(self, spec_params,
                                      inst_params=None, volume_prior=True,
@@ -236,7 +236,7 @@ class MapLike(object) :
         # NOTE:
         #   - einsum only optimized for two matrices contraction, so split this
         #   - This could be also written as (N^-1*d)^T*F^T*amp_mean, which might save some time
-        like=np.einsum("ij,ijk,ik->", amp_mean, amp_covar_matrix, amp_mean) #TODO: check/optimize
+        like=0.5*np.einsum("ij,ijk,ik->", amp_mean, amp_covar_matrix, amp_mean) #TODO: check/optimize
 
         if add_prior :
             return like+self.logprior(spec_params,inst_params)

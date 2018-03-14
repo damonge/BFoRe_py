@@ -1,6 +1,7 @@
 import numpy as np
 import emcee
 from scipy.optimize import minimize
+import numdifftools  as nd
 
 def run_minimize(func,pos0,dpos=None,method='Powell',tol=None,callback=None,options=None,verbose=False):
     """ Function to find maximum-likelihood parameters
@@ -26,18 +27,59 @@ def run_minimize(func,pos0,dpos=None,method='Powell',tol=None,callback=None,opti
 
     Returns
     -------
-    array_like
-        array of 2 elements. The first one contains the results of the maximization, the second
-        one says whether the maximization was successful.
+        Dictionary with maximum likelihood parameters and status of minimizer on exit.
     """
     if verbose :
         print("Minimizing")
     def mfunc(p,*a) :
         return -func(p,*a)
     res=minimize(mfunc,pos0,method=method,tol=tol,callback=callback,options=options)
+    return {'params_ML':res.x,'ML_success':res.success}
+
+def run_fisher(func,pos0,dpos=None,ml_first=False,ml_method='Powell',ml_options=None,verbose=False):
+    """ Function to find Fisher matrix uncertainties (optionally) maximum-likelihood parameters
+
+    Parameters
+    ----------
+    func: function
+        Likelihood function to maximize. Must be of the form f(x,*args)
+    pos: list(float)
+        Central value to use when computing the Fisher matrix (see ml_first below).
+    dpos: list(float)
+        Irrelevant (optional)
+    ml_first: bool
+        If True, the maximum-likelihood will be found and used as central value when computing the
+        Fisher matrix.
+    ml_method: string
+        Minimizer method, only 'Powell' tested so far (optional, default='Powell')
+    ml_options : dict
+        Optional dictionary containing additional options for the minimizer. One particularly
+        useful option is maxiter:int
+
+    Returns
+    -------
+        Dictionary with central parameter values, Fisher matrix and Fisher bias vector
+    """
+    def mfunc(p,*a) :
+        return -func(p,*a)
+    
+    if ml_first :
+        if verbose :
+            print("Finding ML")
+        res=minimize(mfunc,pos0,method=ml_method,options=ml_options)
+        pcent=res.x
+        ml_success=res.success
+    else :
+        pcent=pos0
+        ml_success=None
     if verbose :
-        print("Done minimizing")
-    return np.array([res.x,res.success])
+        print("Computing gradient")
+    fisher_v=-nd.Gradient(mfunc)(pcent)
+    if verbose :
+        print("Computing Hessian")
+    fisher_m=nd.Hessian(mfunc)(pcent)
+    
+    return {'params_cent':pcent,'fisher_m':fisher_m,'fisher_v':fisher_v,'ML_success':ml_success}
 
 def run_emcee(func, pos0, dpos=None, nwalkers=100, nsamps=500,
               nburn=50, verbose=False):
@@ -63,8 +105,7 @@ def run_emcee(func, pos0, dpos=None, nwalkers=100, nsamps=500,
 
     Returns
     -------
-    array_like(float)
-        Chain of samples of shape (nsamps * nwalkers - nburn * nwalkers, ndim).
+        Dictionary containing the parameter chains.
     """
     if verbose:
         print("Sampling")
@@ -85,9 +126,7 @@ def run_emcee(func, pos0, dpos=None, nwalkers=100, nsamps=500,
     sampler = emcee.EnsembleSampler(nwalkers, ndim, func)
     sampler.run_mcmc(pos, nsamps)
     samples = sampler.chain[:, nburn:, :].reshape((-1, ndim))
-    if verbose:
-        print("Finished sampling.")
-    return samples
+    return {'chains':samples}
 
 def clean_pixels(maplike,sampler,d_params=None,**sampler_args):
     """ Function to combine a given MapLike likelihood object and a given
@@ -110,8 +149,8 @@ def clean_pixels(maplike,sampler,d_params=None,**sampler_args):
     list(array_like(float))
         List of MCMC chains corresponding to the pixels in `ipix`.
     """
-    samples=sampler(maplike.marginal_spectral_likelihood,
+    outputs=sampler(maplike.marginal_spectral_likelihood,
                     pos0=maplike.var_prior_mean,
                     dpos=d_params,
                     **sampler_args)
-    return samples
+    return outputs
