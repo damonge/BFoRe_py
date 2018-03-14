@@ -4,46 +4,80 @@ import numpy as np
 import healpy as hp
 import matplotlib.pyplot as plt
 from .setup_maplike import setup_maplike
-from bfore.sampling import clean_pixels, run_emcee
+from bfore.sampling import clean_pixels, run_emcee, run_minimize, run_fisher
 import corner
 
 class test_MapLike(TestCase):
     def setUp(self):
         self.maplike, self.true_params = setup_maplike()
-        self.data = list(self.maplike.split_data())
         return
 
     def test_chi2(self):
-        pixel_data = self.maplike.split_data()
         print("For true parameters")
-        print("ipix \t pval \t chi2 per dof")
-        for ip, (mean, var) in enumerate(pixel_data):
-            pval = self.maplike.pval(self.true_params, mean, var)
-            chi2perdof= self.maplike.chi2perdof(self.true_params, mean, var)
-            print("{:04d} \t {:01.2f} \t {:01.2f}".format(ip, pval, chi2perdof))
+        print("pval \t chi2 per dof")
+        pval = self.maplike.pval(self.true_params)
+        chi2perdof= self.maplike.chi2perdof(np.array(self.true_params)+0.0)
+        print("{:01.2E} \t {:01.2E}".format(pval, chi2perdof))
         return
 
+    def test_minimize(self):
+        print('Finding maximum likelihood')
+        sampler_args = {
+            "method":'Powell',
+            "tol":None,
+            "callback":None,
+            "options":{'xtol':1E-4,'ftol':1E-4,'maxiter':None,'maxfev':None,'direc':None}
+            }
+        rdict=clean_pixels(self.maplike,run_minimize,**sampler_args)
 
-    def test_sampling(self):
-        ipixs = [10, 11, 12, 13]
+        print("Results: ",)
+        if rdict['ML_success'] :
+            print(" Successful maximization")
+        else :
+            print(" Unsuccessful maximization")
+        print(" Param truth: ",self.true_params)
+        print(" Param ML: ",rdict['params_ML'])
+        print("\n")
+
+    def test_fisher(self):
+        print('Fisher sampler')
+        sampler_args = {
+            "ml_first": True,
+            "ml_method":'Powell',
+            "ml_options":{'xtol':1E-4,'ftol':1E-4,'maxiter':None,'maxfev':None,'direc':None}
+            }
+        rdict=clean_pixels(self.maplike,run_fisher,**sampler_args)
+        covar=np.linalg.inv(rdict['fisher_m'])
+        pbias=np.dot(covar,rdict['fisher_v'])
+
+        print("Results: ",)
+        if rdict['ML_success'] :
+            print(" Successful maximization")
+        else :
+            print(" Unsuccessful maximization")
+        print(" Param truth: ",self.true_params)
+        print(" Param ML: ",rdict['params_cent'])
+        print(" Param sigma: ",np.sqrt(np.diag(covar)))
+        print(" Paramb bias: ",pbias)
+        print("\n")
+
+    def test_emcee(self):
         # Calculate the p value and reduced chi squred for the true parameter values
         # in the 4 pixels above.
 
         sampler_args = {
-            "ndim": len(self.true_params),
             "nwalkers": 20,
             "nsamps": 500,
             "nburn": 100,
-            "pos0": self.true_params
+            "verbose": True
         }
-        for samples in clean_pixels(self.maplike, run_emcee, ipix=ipixs, **sampler_args):
-            # Get the median and percentile ranges from the posterior samples
-            ranges = lambda v: (v[1], v[2]-v[1], v[1]-v[0])
-            params_mcmc = list(map(ranges, zip(*np.percentile(samples, [16, 50, 84], axis=0))))
-            print("Results: \n", )
-            print("Param medians: ", [p[0] for p in params_mcmc])
-            print("Param spread, 14th to 84th percentile: ", [p[1] + p[2] for p in params_mcmc])
-            labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$", r"$\beta_c$"]
-            fig = corner.corner(samples, labels=labels, truths=self.true_params)
-            plt.show()
-        return
+        samples=clean_pixels(self.maplike,run_emcee,**sampler_args)['chains']
+        ranges = lambda v: (v[1], v[2]-v[1], v[1]-v[0])
+        params_mcmc = list(map(ranges, zip(*np.percentile(samples, [16, 50, 84], axis=0))))
+        print("Results:", )
+        print("Param medians: ", [p[0] for p in params_mcmc])
+        print("Param spread, 14th to 84th percentile: ", [p[1] + p[2] for p in params_mcmc])
+        labels = [r"$\beta_s$", r"$\beta_d$", r"$T_d$", r"$\beta_c$"]
+        fig = corner.corner(samples, labels=labels, truths=self.true_params)
+        plt.show()
+        print("\n")
