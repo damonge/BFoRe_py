@@ -49,7 +49,8 @@ def setup_maplike():
         "fixed_pars": {"nu_ref_d": nu_ref_d, "nu_ref_s": nu_ref_s},
         "var_pars": ["beta_s", "beta_d", "T_d", "beta_c"],
         "var_prior_mean": [beta_s_true,beta_d_true,T_d_true,beta_c_true],
-        "var_prior_width": [1.,1.,1.,1.]
+        "var_prior_width": [1.,1.,1.,1.],
+        "var_prior_type": ['gauss','gauss','gauss','tophat']
         }
     skymodel = SkyModel(components)
     instrumentmodel = InstrumentModel(bps)

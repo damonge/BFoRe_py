@@ -34,7 +34,7 @@ def run_minimize(func,pos0,dpos=None,method='Powell',tol=None,callback=None,opti
     def mfunc(p,*a) :
         return -func(p,*a)
     res=minimize(mfunc,pos0,method=method,tol=tol,callback=callback,options=options)
-    return {'params_ML':res.x,'ML_success':res.success}
+    return {'params_ML':res.x,'ML_success':res.success,'ML_nev':res.nfev}
 
 def run_fisher(func,pos0,dpos=None,ml_first=False,ml_method='Powell',ml_options=None,verbose=False):
     """ Function to find Fisher matrix uncertainties (optionally) maximum-likelihood parameters
