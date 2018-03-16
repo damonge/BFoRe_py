@@ -41,7 +41,8 @@ class MapLike(object) :
                  parameter. This value will also be used to initialize any
                  sampler/minimizer.
             - var_prior_width: array with the width of the prior for each parameter.
-                 Gaussian priors are implied throughout.
+            - var_prior_type: array with the prior type for each parameter. Allowed
+                 values are 'gauss', 'tophat' or 'none'.
         """
         self.sky = sky_model
         self.inst = instrument_model
@@ -62,7 +63,14 @@ class MapLike(object) :
         self.npix=len(self.data)
         self.var_prior_mean=np.array(self.var_prior_mean)
         self.var_prior_width=np.array(self.var_prior_width)
-        self.var_prior_iwidth=1./self.var_prior_width
+        self.id_tophat=np.array([t=='tophat' for t in self.var_prior_type])
+        self.id_gauss=np.array([t=='gauss' for t in self.var_prior_type])
+        self.var_prior_meang=self.var_prior_mean[self.id_gauss]
+        self.var_prior_meant=self.var_prior_mean[self.id_tophat]
+        self.var_prior_widthg=self.var_prior_width[self.id_gauss]
+        self.var_prior_widtht=self.var_prior_width[self.id_tophat]
+        self.var_prior_iwidthg=1./self.var_prior_widthg
+
         # numer of degrees of freedom
         n_amps = self.npix * self.sky.ncomps
         n_spec = len(self.var_pars)
@@ -200,11 +208,18 @@ class MapLike(object) :
         float
             Prior at this point in parameter space.
         """
-        return -0.5*np.sum(((spec_params-self.var_prior_mean)*self.var_prior_iwidth)**2)
+
+        #Top-hat priors
+        if any(np.fabs(spec_params[self.id_tophat]-self.var_prior_meant)>self.var_prior_widtht) :
+            return None
+        else :
+            #Gausian priors
+            return -0.5*np.sum(((spec_params[self.id_gauss]-self.var_prior_meang)*
+                                self.var_prior_iwidthg)**2)
 
     def marginal_spectral_likelihood(self, spec_params,
                                      inst_params=None, volume_prior=True,
-                                     add_prior=False):
+                                     add_prior=True):
         """ Function to calculate the likelihood marginalized over amplitude
         parameters.
 
@@ -222,6 +237,14 @@ class MapLike(object) :
         float
             Likelihood at this point in parameter space.
         """
+
+        if add_prior :
+            lprior=self.logprior(spec_params,inst_params)
+        else :
+            lprior=0
+        if lprior is None :
+            return -np.inf
+        
         # calculate sed for proposal spectral parameters
         f_matrix = self.f_matrix(spec_params, inst_params=inst_params)
         # f_matrix -> (N_comp,N_freq)
@@ -238,11 +261,8 @@ class MapLike(object) :
         #   - This could be also written as (N^-1*d)^T*F^T*amp_mean, which might save some time
         like=0.5*np.einsum("ij,ijk,ik->", amp_mean, amp_covar_matrix, amp_mean) #TODO: check/optimize
 
-        if add_prior :
-            return like+self.logprior(spec_params,inst_params)
-        else :
-            return like
-
+        return like+lprior
+        
     def chi2(self, spec_params, inst_params=None,
              f_matrix=None, volume_prior=True, lnprior=None):
         """ Function to calculate the chi2 of a given set of spectral
