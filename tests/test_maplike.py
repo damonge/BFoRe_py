@@ -32,7 +32,7 @@ class test_MapLike(TestCase):
             for j, T in enumerate(T_d):
                 for k, b_s in enumerate(beta_s):
                     for l, b_c in enumerate(beta_c):
-                        params = (b_s, b_d, T, b_c)
+                        params = np.array((b_s, b_d, T, b_c))
                         lkl[i, j, k, l] = self.maplike.marginal_spectral_likelihood(params)
 
         # plot 2d posteriors
