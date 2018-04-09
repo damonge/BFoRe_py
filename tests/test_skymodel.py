@@ -8,9 +8,16 @@ class test_SkyModel(TestCase):
         self.skymodel = SkyModel(components)
         return
 
-    def test_param_names(self):
-        param_names = set(["nu_ref_d", "beta_d", "T_d", "nu_ref_s", "beta_s"])
-        self.assertEqual(set(self.skymodel.get_param_names()), param_names)
+    def test_sed_param_names(self):
+        param_names = set(["nu_ref_d", "beta_d", "T_d","nu_ref_s", "beta_s"])
+        self.assertEqual(set(self.skymodel.get_sed_param_names()), param_names)
+        return
+
+    def test_cl_param_names(self):
+        param_names = set(["r_tensor","a_lens",
+                           "ell_ref_s","att_s","aee_s","abb_s","ate_s","alpha_s",
+                           "ell_ref_d","att_d","aee_d","abb_d","ate_d","alpha_d"])
+        self.assertEqual(set(self.skymodel.get_cl_param_names()), param_names)
         return
 
     def test_ncomps(self):

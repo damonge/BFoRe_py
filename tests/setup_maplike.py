@@ -1,5 +1,5 @@
 from bfore import MapLike, SkyModel, InstrumentModel
-from bfore.components import syncpl, dustmbb, cmb, sync_curvedpl
+from bfore.components import syncpl_sed, dustmbb_sed, cmb_sed, sync_curvedpl_sed
 import tempfile
 import numpy as np
 import healpy as hp
@@ -31,9 +31,9 @@ def setup_maplike():
     temp_d = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))[1:]
     temp_c = np.array(hp.synfast([cl_d, cl_d, cl_d, cl_d], nside, verbose=False, pol=True))[1:]
     # the synchrotron and dust signals separates
-    synch = np.array([temp_s * sync_curvedpl(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s, beta_c=beta_c_true) for nu in nus])
-    dust = np.array([temp_d * dustmbb(np.array([nu]), beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
-    cmbs = np.array([temp_c * cmb(np.array([nu])) for nu in nus])
+    synch = np.array([temp_s * sync_curvedpl_sed(np.array([nu]), beta_s=beta_s_true, nu_ref_s=nu_ref_s, beta_c=beta_c_true) for nu in nus])
+    dust = np.array([temp_d * dustmbb_sed(np.array([nu]), beta_d=beta_d_true, T_d=T_d_true, nu_ref_d=nu_ref_d) for nu in nus])
+    cmbs = np.array([temp_c * cmb_sed(np.array([nu])) for nu in nus])
     # the noise maps
     noise = [add_noise(sig, nside) for sig in sigmas]
     # these are the simulated observations mean and variance

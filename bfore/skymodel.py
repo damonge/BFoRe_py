@@ -24,17 +24,25 @@ class SkyModel(object) :
         # Initialize list of requested components.
         self.components = [Component(comp_name) for comp_name in comp_names]
         # get list of all parameter names in the SEDs, excluding frequency `nu`.
-        self.param_names= []
+        self.sed_param_names= []
         for component in self.components:
-            self.param_names += component.get_parameters()
+            self.sed_param_names += component.get_sed_parameters()
+        # get list of all parameter names in the C_ells
+        self.cl_param_names= []
+        for component in self.components:
+            self.cl_param_names += component.get_cl_parameters()
         # get list of lists of parameter names, per component
         # (length = len(components)).
-        self.comp_par_names = [comp.get_parameters() for comp in self.components]
+        self.comp_sed_par_names = [comp.get_sed_parameters() for comp in self.components]
+        self.comp_cl_par_names = [comp.get_cl_parameters() for comp in self.components]
         self.ncomps = len(self.components)
         return
 
-    def get_param_names(self):
-        return self.param_names
+    def get_sed_param_names(self):
+        return self.sed_param_names
+
+    def get_cl_param_names(self):
+        return self.cl_param_names
 
     def get_model_description(self):
         """ Function to collect all the parameters required by the components
@@ -69,7 +77,8 @@ class SkyModel(object) :
         nu = np.array(nu)
         # convert dictionary of parameter names, to a list of tuples containing
         # the arguments for each of the seds.
-        component_params = [tuple(params[par_name] for par_name in comp_par_names) for comp_par_names in self.comp_par_names]
+        component_params = [tuple(params[par_name] for par_name in comp_sed_par_names)
+                            for comp_sed_par_names in self.comp_sed_par_names]
         # calculate the seds
         # Returns Ncomp x Nfreq array
-        return np.array([sed(nu, params) for (sed, params) in zip(self.components, component_params)])
+        return np.array([comp.spectrum(nu, params) for (comp, params) in zip(self.components, component_params)])

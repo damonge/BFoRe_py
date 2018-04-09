@@ -90,7 +90,7 @@ class MapLike(object) :
             print("Check parameter not in both fixed and variable parameters.")
             exit()
         # get parameters required by SkyModel
-        model_pars = set(self.sky.get_param_names())
+        model_pars = set(self.sky.get_sed_param_names())
         # get fixed parameter names, specified in the config
         config_pars = set(self.fixed_pars)
         # update this with the variable parameter names, specified in the config
