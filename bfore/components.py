@@ -1,6 +1,7 @@
 from __future__ import print_function
 import numpy as np
 import inspect
+import sys
 
 class Component(object):
     def __init__(self, comp_name):
@@ -33,8 +34,11 @@ class Component(object):
         and return them. This is used to build a list of possible parameters
         that may be varied by MapLike.
         """
-        sig = inspect.signature(self.sed)
-        pars = list(sig.parameters.keys())
+        if sys.version_info[0]>= 3:
+            sig = inspect.signature(self.sed)
+            pars = list(sig.parameters.keys())
+        else :
+            pars = list(inspect.getargspec(self.sed).args)
         return list(filter(lambda par: par not in ['nu', 'args', 'kwargs'], pars))
 
 
